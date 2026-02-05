@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import time
+
 from fastapi import APIRouter, HTTPException, Request
+from starlette.concurrency import run_in_threadpool
 
 from services.esim.oasis.service import (
     balance as esim_balance,
@@ -15,6 +19,35 @@ from services.esim.oasis.service import (
 )
 
 router = APIRouter()
+
+_ESIM_BUNDLES_CACHE: dict[str, dict] = {}
+_ESIM_BUNDLES_TTL_SEC = 300
+
+
+def _esim_cache_key(params: dict | None, settings: dict) -> str:
+    payload = {
+        "params": params or {},
+        "allowed": settings.get("allowed_countries") or [],
+        "fx_rate": settings.get("fx_rate") or 0,
+        "markup_percent": settings.get("markup_percent") or 0,
+        "markup_fixed_iqd": settings.get("markup_fixed_iqd") or 0,
+    }
+    return json.dumps(payload, sort_keys=True)
+
+
+def _esim_cache_get(key: str) -> dict | None:
+    item = _ESIM_BUNDLES_CACHE.get(key)
+    if not item:
+        return None
+    ts = float(item.get("ts") or 0)
+    if (time.time() - ts) > _ESIM_BUNDLES_TTL_SEC:
+        _ESIM_BUNDLES_CACHE.pop(key, None)
+        return None
+    return item.get("value")
+
+
+def _esim_cache_set(key: str, value: dict) -> None:
+    _ESIM_BUNDLES_CACHE[key] = {"ts": time.time(), "value": value}
 
 
 @router.get("/api/other-apis/esim")
@@ -122,8 +155,13 @@ def _esim_apply_pricing(item: dict, settings: dict) -> dict:
 async def esim_bundles(request: Request):
     try:
         params = dict(request.query_params)
-        data = esim_list_bundles(params=params or None)
         settings = _esim_settings()
+        cache_key = _esim_cache_key(params, settings)
+        cached = _esim_cache_get(cache_key)
+        if cached:
+            return cached
+
+        data = await run_in_threadpool(esim_list_bundles, params=params or None)
         allowed = settings.get("allowed_countries") or []
         items = data.get("items") or data.get("bundles") or []
         out_items = []
@@ -138,6 +176,7 @@ async def esim_bundles(request: Request):
         data["items"] = out_items
         if "bundles" in data:
             data["bundles"] = out_items
+        _esim_cache_set(cache_key, data)
         return data
     except HTTPException:
         raise

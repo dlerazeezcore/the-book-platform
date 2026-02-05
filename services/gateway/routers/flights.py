@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import time
 from typing import Optional
 
 import httpx
@@ -14,6 +16,44 @@ from services.gateway.flights_utils import _wings_config_missing
 from services.gateway.permissions_store import _ota_policy
 
 router = APIRouter()
+
+# Small in-memory cache to reduce repeated external API calls on the same search.
+_AVAIL_CACHE: dict[str, dict] = {}
+_AVAIL_TTL_SEC = 45
+
+
+def _avail_cache_key(req: "AvailabilityRequest", pol: dict) -> str:
+    blocked = pol.get("blocked_airlines") if isinstance(pol, dict) else []
+    if not isinstance(blocked, list):
+        blocked = []
+    filters_enabled = bool(pol.get("filters_enabled", True)) if isinstance(pol, dict) else True
+    payload = {
+        "from": req.from_,
+        "to": req.to,
+        "date": req.date,
+        "trip_type": req.trip_type,
+        "return_date": req.return_date,
+        "cabin": req.cabin,
+        "pax": {"adults": req.pax.adults, "children": req.pax.children, "infants": req.pax.infants},
+        "filters_enabled": filters_enabled,
+        "blocked_airlines": [str(x).upper() for x in blocked if str(x).strip()],
+    }
+    return json.dumps(payload, sort_keys=True)
+
+
+def _avail_cache_get(key: str) -> dict | None:
+    item = _AVAIL_CACHE.get(key)
+    if not item:
+        return None
+    ts = float(item.get("ts") or 0)
+    if (time.time() - ts) > _AVAIL_TTL_SEC:
+        _AVAIL_CACHE.pop(key, None)
+        return None
+    return item.get("value")
+
+
+def _avail_cache_set(key: str, value: dict) -> None:
+    _AVAIL_CACHE[key] = {"ts": time.time(), "value": value}
 
 
 # ------------------------------------------------------------
@@ -96,6 +136,11 @@ async def availability(req: AvailabilityRequest):
     pol = _ota_policy()
     if not pol["availability"]:
         return {"meta": {"disabled": True, "reason": "Provider OTA is disabled"}, "results_outbound": []}
+
+    cache_key = _avail_cache_key(req, pol)
+    cached = _avail_cache_get(cache_key)
+    if cached:
+        return JSONResponse(cached)
 
     def _seg_sig(seg: dict) -> str:
         """Stable signature for matching a return option to a roundtrip-priced itinerary."""
@@ -245,14 +290,9 @@ async def availability(req: AvailabilityRequest):
     }
 
     try:
-        resp_out = await client.air_low_fare_search(payload)
-        norm_out = normalize_priced_itineraries(resp_out)
-
-        meta = norm_out.get("meta")
-        results = norm_out.get("results_outbound") or []
-
-        # Separate return call for independent selection
         results_return = []
+        rt_map = {}
+
         if req.trip_type == "roundtrip" and req.return_date:
             payload_ret = {
                 **payload,
@@ -264,12 +304,24 @@ async def availability(req: AvailabilityRequest):
                     }
                 ],
             }
-            resp_ret = await client.air_low_fare_search(payload_ret)
+            resp_out_task = asyncio.create_task(client.air_low_fare_search(payload))
+            resp_ret_task = asyncio.create_task(client.air_low_fare_search(payload_ret))
+            rt_map_task = asyncio.create_task(_roundtrip_price_map())
+
+            resp_out = await resp_out_task
+            norm_out = normalize_priced_itineraries(resp_out)
+            meta = norm_out.get("meta")
+            results = norm_out.get("results_outbound") or []
+
+            resp_ret = await resp_ret_task
             norm_ret = normalize_priced_itineraries(resp_ret)
             results_return = norm_ret.get("results_outbound") or []
 
-            # Enrich return results with true roundtrip totals
-            rt_map = await _roundtrip_price_map()
+            # Enrich return results with true roundtrip totals (best-effort).
+            try:
+                rt_map = await asyncio.wait_for(rt_map_task, timeout=8)
+            except Exception:
+                rt_map = {}
             if rt_map:
                 for rr in results_return:
                     sig = _norm_sig_from_result(rr)
@@ -278,6 +330,11 @@ async def availability(req: AvailabilityRequest):
                         rr["roundtrip_total_currency"] = info.get("currency")
                         rr["roundtrip_total_amount"] = info.get("amount")
                         rr["roundtrip_amount_raw"] = info.get("amount_raw")
+        else:
+            resp_out = await client.air_low_fare_search(payload)
+            norm_out = normalize_priced_itineraries(resp_out)
+            meta = norm_out.get("meta")
+            results = norm_out.get("results_outbound") or []
 
         # Apply provider filters (blocked airlines)
         if pol.get("filters_enabled", True) and pol.get("blocked_airlines"):
@@ -296,7 +353,9 @@ async def availability(req: AvailabilityRequest):
             if isinstance(results_return, list):
                 results_return = [r for r in results_return if not _is_blocked(r)]
 
-        return JSONResponse({"meta": meta, "results": results, "results_return": results_return})
+        payload_out = {"meta": meta, "results": results, "results_return": results_return}
+        _avail_cache_set(cache_key, payload_out)
+        return JSONResponse(payload_out)
 
     except HTTPException:
         raise
