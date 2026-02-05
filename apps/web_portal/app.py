@@ -47,7 +47,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.templating import Jinja2Templates
 
-BUILD_ID = "fastapi-searchwindow-v5"
+BUILD_ID = "fastapi-searchwindow-v6"
 
 BACKEND_BASE_URL = os.getenv("AVAILABILITY_BACKEND_URL", "").strip()
 BACKEND_URLS_ENV = os.getenv("AVAILABILITY_BACKEND_URLS", "").strip()
