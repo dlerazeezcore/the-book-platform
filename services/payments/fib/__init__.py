@@ -1,0 +1,2 @@
+"""FIB bank integration placeholder."""
+

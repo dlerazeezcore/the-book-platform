@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Payment</div>
+              <div class="text-muted small">Choose how to pay before issuing the ticket.</div>
+            </div>
+          </div>
+
+          <div class="mt-3" id="paySummary"></div>
+
+          <hr class="my-3" />
+
+          <div class="row g-3">
+            <div class="col-12 col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">Payment method</div>
+
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="payMethod" id="payCash" value="cash">
+                    <label class="form-check-label" for="payCash">Cash</label>
+                  </div>
+                  <div class="mt-2 d-none" id="cashOptions">
+                    <div class="text-muted small mb-2">Choose payment option</div>
+                    <div class="d-flex flex-wrap gap-2">
+                      <button type="button" class="btn btn-outline-secondary pay-option active" data-cash-provider="fib">
+                        <span class="pay-icon">FIB</span>
+                        <span>FIB</span>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="payMethod" id="payCredit" value="credit" checked>
+                    <label class="form-check-label" for="payCredit">Credit</label>
+                  </div>
+
+                  <div class="alert alert-warning mt-3 d-none" id="payWarn"></div>
+
+                  <div class="d-flex gap-2 mt-3">
+                    <a class="btn btn-outline-secondary" href="{{ request.url_for('passenger_info') }}">Back</a>
+                    <button class="btn btn-primary" id="payContinue">Continue</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <div class="card h-100">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">Active user balances</div>
+                  <div class="text-muted small" id="userInfo"></div>
+                  <div class="mt-3">
+                    <div class="d-flex justify-content-between"><div>Cash</div><div class="fw-semibold" id="balCash"></div></div>
+                    <div class="d-flex justify-content-between mt-1"><div>Credit</div><div class="fw-semibold" id="balCredit"></div></div>
+                    <div class="d-flex justify-content-between mt-2 pt-2 border-top"><div>Total ticket price</div><div class="fw-semibold" id="ticketTotal"></div></div>
+                  </div>
+                  <div class="text-muted small mt-3">If insufficient, a FIB payment link + QR will be generated.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-3 alert alert-info d-none" id="issueStatus"></div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const SELECTION_KEY = "booking_selection_v1";
+    const PAYLOAD_KEY = "issue_payload_v1";
+    const USERSKEY = "b2b_users_v1";
+    const ACTIVE = "active_user_id_v1";
+
+    const paySummary = document.getElementById("paySummary");
+    const userInfo = document.getElementById("userInfo");
+    const balCash = document.getElementById("balCash");
+    const balCredit = document.getElementById("balCredit");
+    const ticketTotal = document.getElementById("ticketTotal");
+    const warnEl = document.getElementById("payWarn");
+    const btn = document.getElementById("payContinue");
+    const statusEl = document.getElementById("issueStatus");
+    const cashOptions = document.getElementById("cashOptions");
+
+    const safeJson = (s) => { try { return JSON.parse(s); } catch { return null; } };
+
+    const parseMoney = (s) => {
+      const t = String(s || "");
+      const m = t.match(/([0-9][0-9,]*)(?:\.(\d+))?/);
+      if (!m) return 0;
+      const i = parseInt(m[1].replaceAll(",",""), 10);
+      return Number.isFinite(i) ? i : 0;
+    };
+
+    const formatMoney = (n) => {
+      try { return Number(n||0).toLocaleString(); } catch { return String(n||0); }
+    };
+
+    const users = safeJson(localStorage.getItem(USERSKEY) || "[]") || [];
+    const activeId = localStorage.getItem(ACTIVE) || "";
+    const user = users.find(u => String(u.id||"") === String(activeId)) || users[0] || null;
+
+    if (!user) {
+      if (warnEl) { warnEl.classList.remove("d-none"); warnEl.textContent = "No active user found. Create a user in Admin → Users."; }
+      if (btn) btn.disabled = true;
+      return;
+    }
+    if (user.active === false) {
+      if (warnEl) { warnEl.classList.remove("d-none"); warnEl.textContent = "User is deactivated. Activate it in Admin → Users."; }
+      if (btn) btn.disabled = true;
+      return;
+    }
+
+    const selection = safeJson(localStorage.getItem(SELECTION_KEY) || "") || null;
+    const payload = safeJson(localStorage.getItem(PAYLOAD_KEY) || "") || null;
+    if (!selection || !payload) {
+      if (warnEl) { warnEl.classList.remove("d-none"); warnEl.textContent = "Missing booking data. Please go back and select a flight again."; }
+      if (btn) btn.disabled = true;
+      return;
+    }
+
+    const amount = parseMoney(selection.total_price || "");
+    if (ticketTotal) ticketTotal.textContent = formatMoney(amount);
+
+    if (balCash) balCash.textContent = formatMoney(user.cash || 0);
+    if (balCredit) balCredit.textContent = formatMoney(user.credit || 0);
+    if (userInfo) userInfo.textContent = (user.company_name || "") + " · " + (user.username || "");
+
+    try {
+      const out = selection.selectedOutbound;
+      const seg = out && out.segments && out.segments[0] ? out.segments[0] : null;
+      const airline = seg ? (seg.airline_name || seg.airline || "") : "";
+      const fromC = seg ? (seg.dep || "") : "";
+      const toC = seg ? (seg.arr || "") : "";
+      const pax = selection.pax || {};
+      const adults = pax.adults || 0;
+      const children = pax.children || 0;
+
+      let html = "<div class='text-muted small'>Trip: <span class='fw-semibold'>" + String(selection.trip_type||"oneway").toUpperCase() + "</span></div>";
+      if (fromC && toC) html += "<div class='text-muted small'>Route: <span class='fw-semibold'>" + fromC + " → " + toC + "</span></div>";
+      if (airline) html += "<div class='text-muted small'>Airline: <span class='fw-semibold'>" + airline + "</span></div>";
+      html += "<div class='text-muted small'>Passengers: <span class='fw-semibold'>" + adults + " adult</span>";
+      if (children) html += " + <span class='fw-semibold'>" + children + " child</span>";
+      html += "</div>";
+      if (paySummary) paySummary.innerHTML = html;
+    } catch {}
+
+    const pickMethod = () => {
+      const v = document.querySelector('input[name="payMethod"]:checked')?.value || "credit";
+      return v;
+    };
+
+    const updateWarn = (msg) => {
+      if (!warnEl) return;
+      if (!msg) { warnEl.classList.add("d-none"); warnEl.textContent = ""; return; }
+      warnEl.classList.remove("d-none");
+      warnEl.textContent = msg;
+    };
+
+    const canPay = (method) => {
+      const credit = Number(user.credit || 0);
+      const cash = Number(user.cash || 0);
+      if (method === "cash") return cash >= amount;
+      if (method === "credit") return credit >= amount;
+      return false;
+    };
+
+    const applyDeduction = (method) => {
+      const credit = Number(user.credit || 0);
+      const cash = Number(user.cash || 0);
+      if (method === "credit") user.credit = Math.max(0, credit - amount);
+      if (method === "cash") user.cash = Math.max(0, cash - amount);
+      return method;
+    };
+
+    const saveUser = () => {
+      const idx = users.findIndex(u => String(u.id||"") === String(user.id||""));
+      if (idx >= 0) users[idx] = user;
+      localStorage.setItem(USERSKEY, JSON.stringify(users));
+    };
+
+    const pickCashProvider = () => {
+      const active = document.querySelector(".pay-option.active");
+      return active ? active.getAttribute("data-cash-provider") : "";
+    };
+
+    const updateCashOptions = () => {
+      if (!cashOptions) return;
+      const m = pickMethod();
+      cashOptions.classList.toggle("d-none", m !== "cash");
+    };
+
+    document.querySelectorAll(".pay-option").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".pay-option").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+      });
+    });
+
+    document.querySelectorAll('input[name="payMethod"]').forEach(r => {
+      r.addEventListener("change", () => {
+        const m = pickMethod();
+        updateCashOptions();
+        updateWarn(canPay(m) ? "" : "Insufficient balance for selected method.");
+      });
+    });
+
+    updateCashOptions();
+    updateWarn("");
+
+    btn?.addEventListener("click", async () => {
+      const method = pickMethod();
+      if (method === "cash") {
+        const provider = pickCashProvider();
+        if (!provider) {
+          updateWarn("Please choose a cash payment option.");
+          return;
+        }
+      }
+
+      if (method === "cash" && !canPay(method)) {
+        updateWarn("Insufficient cash. Please pay using FIB.");
+        try {
+          const data = await window.createFibPayment(amount, "Ticket payment");
+          // Reuse the global FIB modal to display QR/link.
+          const fibModalEl = document.getElementById("fibPayModal");
+          if (fibModalEl && window.bootstrap) {
+            const fibModal = window.bootstrap.Modal.getOrCreateInstance(fibModalEl);
+            const fibAmount = document.getElementById("fibPayAmount");
+            const fibStatus = document.getElementById("fibPayStatus");
+            const fibResult = document.getElementById("fibPayResult");
+            const fibQr = document.getElementById("fibPayQr");
+            const fibLink = document.getElementById("fibPayLink");
+            const fibRef = document.getElementById("fibPayRef");
+
+            if (fibAmount) fibAmount.value = String(amount);
+            if (fibAmount) fibAmount.readOnly = true;
+            if (fibStatus) { fibStatus.classList.add("d-none"); fibStatus.textContent = ""; }
+            if (fibResult) fibResult.classList.remove("d-none");
+            if (fibQr) fibQr.src = data.qr_url || "";
+            if (fibLink) { fibLink.href = data.payment_link || "#"; fibLink.textContent = data.payment_link || ""; }
+            if (fibRef) fibRef.textContent = data.reference || "";
+            fibModal.show();
+          }
+        } catch (e) {
+          updateWarn("Failed to create FIB payment link.");
+        }
+        return;
+      }
+
+      if (method === "credit" && !canPay(method)) {
+        updateWarn("Insufficient credit to pay for this ticket.");
+        return;
+      }
+
+      // attach payment info and active user
+      payload.payment = { method };
+      payload.user = { id: user.id, company_name: user.company_name || "", username: user.username || "" };
+      // send total for backend payment validation
+      payload.total_amount = amount;
+
+      if (statusEl) {
+        statusEl.classList.remove("d-none");
+        statusEl.className = "mt-3 alert alert-info";
+        statusEl.textContent = "Issuing ticket…";
+      }
+      btn.disabled = true;
+
+      try {
+        const resp = await fetch("issue-ticket", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        const text = await resp.text();
+        let data = null;
+        try { data = JSON.parse(text); } catch { data = { status: "error", error: text }; }
+
+        const pnr = (data && (data.pnr || data.connectota_id)) ? String(data.pnr || data.connectota_id) : "";
+        const pendingId = (data && (data.pending_id || data.pendingId)) ? String(data.pending_id || data.pendingId) : "";
+        const isPending = !!(data && (data.pending === true || String(data.status || "").toLowerCase() === "pending"));
+        const isSuccess = !!(data && (String(data.status || "").toLowerCase() === "success" || pnr));
+
+        // Pending requests (provider disabled / no providers enabled):
+        // - Do NOT show a "request sent" message
+        // - Do NOT deduct balance (unless backend says it was deducted)
+        // - Save to Transactions as Pending and redirect there
+        if (!isPending && !isSuccess) {
+          // keep balance unchanged if failed
+          const msg = (data && (data.error || data.detail || data.upstream)) ? String(data.error || data.detail || data.upstream) : "Failed to issue ticket.";
+          if (statusEl) { statusEl.className = "mt-3 alert alert-danger"; statusEl.textContent = msg; }
+          btn.disabled = false;
+          return;
+        }
+
+        const deducted = !!(data && data.deducted === true);
+        const shouldDeduct = (!isPending && isSuccess) || (isPending && deducted);
+
+        // Deduct after SUCCESS, or when backend confirms deduction for pending credit
+        if (shouldDeduct) applyDeduction(method);
+        if (shouldDeduct) saveUser();
+
+        const chosen = method;
+
+        // Update balances UI
+        if (balCash) balCash.textContent = formatMoney(user.cash || 0);
+        if (balCredit) balCredit.textContent = formatMoney(user.credit || 0);
+
+        // Save transaction and pending similar to passenger_info logic
+        try {
+          const out = selection.selectedOutbound;
+          const seg = out && out.segments && out.segments[0] ? out.segments[0] : null;
+          const airline = seg ? (seg.airline_name || seg.airline || "") : "";
+          const fromC = seg ? (seg.dep || "") : "";
+          const toC = seg ? (seg.arr || "") : "";
+
+          const p0 = payload.passengers && payload.passengers[0] ? payload.passengers[0] : null;
+          const firstName = p0 ? (p0.first_name || "") : "";
+          const lastName = p0 ? (p0.last_name || "") : "";
+
+          const status = isPending ? "Pending" : "Successful";
+
+          const tx = {
+            ts: new Date().toISOString(),
+            status,
+            pnr,
+            pending_id: pendingId,
+            provider: (data && data.provider) ? String(data.provider) : "OTA",
+            airline, from: fromC, to: toC, first_name: firstName, last_name: lastName,
+            pay_method: chosen,
+            amount: amount,
+            user_id: user.id,
+            company_name: user.company_name || "",
+            username: user.username || ""
+          };
+
+          const TXKEY = "transactions_v1";
+          const arr = JSON.parse(localStorage.getItem(TXKEY) || "[]");
+          if (Array.isArray(arr)) arr.unshift(tx);
+          localStorage.setItem(TXKEY, JSON.stringify(arr));
+
+          if (isPending) {
+            const PKEY = "pending_v1";
+            const pendArr = JSON.parse(localStorage.getItem(PKEY) || "[]");
+            const pendItem = {
+              ts: new Date().toISOString(),
+              status: "Pending",
+              pending_id: pendingId || ("PND-" + Math.random().toString(16).slice(2, 10).toUpperCase()),
+              provider: (data && data.provider) ? String(data.provider) : "OTA",
+              airline, from: fromC, to: toC,
+              first_name: firstName, last_name: lastName,
+              reference: "",
+              pay_method: chosen,
+              amount: amount,
+              user_id: user.id,
+              company_name: user.company_name || "",
+              username: user.username || ""
+            };
+            if (Array.isArray(pendArr)) pendArr.unshift(pendItem);
+            localStorage.setItem(PKEY, JSON.stringify(pendArr));
+          }
+        } catch {}
+
+        // cleanup payload (but keep selection)
+        localStorage.removeItem(PAYLOAD_KEY);
+
+        // Always redirect users to Transactions after Continue.
+        window.location.href = "transactions";
+      } catch (e) {
+        if (statusEl) { statusEl.className = "mt-3 alert alert-danger"; statusEl.textContent = String(e); }
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}

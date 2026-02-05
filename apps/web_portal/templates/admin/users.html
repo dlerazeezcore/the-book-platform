@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="h5 mb-1">B2B Users</div>
+          <div class="text-muted small">Create companies, set balances, and manage access.</div>
+        </div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('admin_sub_users') }}">Sub users</a>
+          <a class="btn btn-sm btn-outline-secondary" href="{{ request.url_for('admin') }}">Back</a>
+        </div>
+      </div>
+
+      <hr class="my-3"/>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="fw-semibold">Create company user</div>
+          <form class="row g-2 mt-2" method="post" action="{{ request.url_for('admin_users_create') }}">
+            <div class="col-md-3"><input class="form-control" name="company_name" placeholder="Company name" required></div>
+            <div class="col-md-2"><input class="form-control" name="username" placeholder="Username" required></div>
+            <div class="col-md-3"><input class="form-control" name="email" placeholder="Email" type="email"></div>
+            <div class="col-md-2"><input class="form-control" name="password" placeholder="Password" required></div>
+            <div class="col-md-2"><input class="form-control" name="phone" placeholder="Phone"></div>
+            <div class="col-md-1"><input class="form-control" name="credit" placeholder="Credit" value="0"></div>
+            <div class="col-md-1"><input class="form-control" name="cash" placeholder="Cash" value="0"></div>
+            <div class="col-md-1">
+              <select class="form-select" name="preferred_payment">
+                <option value="cash">Cash</option>
+                <option value="credit">Credit</option>
+              </select>
+            </div>
+            <div class="col-12"><button class="btn btn-dark" type="submit">Create</button></div>
+          </form>
+          <div class="text-muted small mt-2">Users are stored locally in <code>data/users.json</code>.</div>
+        </div>
+      </div>
+
+      <div class="mt-4">
+        <div class="fw-semibold">User list</div>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Username</th>
+                <th class="text-end">Remained credit</th>
+                <th class="text-end">Remained cash</th>
+                <th>Status</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in users %}
+                <tr>
+                  <td>{{ u.company_name }}</td>
+                  <td>{{ u.username }}</td>
+                  <td class="text-end">{{ u.credit }}</td>
+                  <td class="text-end">{{ u.cash }}</td>
+                  <td>
+                    {% if u.active %}
+                      <span class="badge text-bg-success">Active</span>
+                    {% else %}
+                      <span class="badge text-bg-secondary">Blocked</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <div class="d-inline-flex gap-2">
+                      <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('admin_user_detail', user_id=u.id) }}">User actions</a>
+                      <form method="post" action="{{ request.url_for('admin_user_delete', user_id=u.id) }}" onsubmit="return confirm('Delete this company and all its sub users?');">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="6" class="text-muted">No users created yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

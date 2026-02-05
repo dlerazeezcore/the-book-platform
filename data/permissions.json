@@ -1,0 +1,26 @@
+{
+  "providers": [
+    {
+      "id": "ota",
+      "name": "OTA",
+      "enabled": true,
+      "booking_enabled": true,
+      "filters_enabled": false,
+      "blocked_suppliers": [],
+      "blocked_airlines": [],
+      "schedule_enabled": false,
+      "schedules": []
+    },
+    {
+      "id": "plq",
+      "name": "Plq",
+      "enabled": true,
+      "booking_enabled": true,
+      "filters_enabled": false,
+      "blocked_suppliers": [],
+      "blocked_airlines": [],
+      "schedule_enabled": false,
+      "schedules": []
+    }
+  ]
+}

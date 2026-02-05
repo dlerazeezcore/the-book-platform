@@ -1,0 +1,109 @@
+<div class="card search-card nav-panel h-100" style="width: 100%;">
+  <div class="card-body d-flex flex-column">
+    <div class="panel-header">
+      <div class="panel-title">Navigation</div>
+      <div class="panel-subtitle">Quick navigation</div>
+    </div>
+
+    <div class="list-group nav-list">
+      {% if app_product in ["all", "flights"] %}
+        <a
+          href="{{ request.url_for('index') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/' %}active{% endif %}"
+          {% if request.url.path == '/' %}aria-current="page"{% endif %}
+        >
+          Search Flights
+        </a>
+      {% endif %}
+
+      {% if app_product in ["all", "hotels"] %}
+        <a
+          href="{{ request.url_for('search_hotels') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/hotels' %}active{% endif %}"
+          {% if request.url.path == '/hotels' %}aria-current="page"{% endif %}
+        >
+          Search Hotels
+        </a>
+      {% endif %}
+
+      {% if has_esim and app_product in ["all", "esim"] %}
+        <a
+          href="{{ request.url_for('esim') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/esim' %}active{% endif %}"
+          {% if request.url.path == '/esim' %}aria-current="page"{% endif %}
+        >
+          Esim
+        </a>
+      {% endif %}
+
+      {% if app_product == "all" %}
+        <a
+          href="{{ request.url_for('airport_transportation') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/airport-transportation' %}active{% endif %}"
+          {% if request.url.path == '/airport-transportation' %}aria-current="page"{% endif %}
+        >
+          Airport Transportation
+        </a>
+
+        <a
+          href="{{ request.url_for('car_rental') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/car-rental' %}active{% endif %}"
+          {% if request.url.path == '/car-rental' %}aria-current="page"{% endif %}
+        >
+          Car Rental
+        </a>
+
+        <a
+          href="{{ request.url_for('cip_services') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/cip-services' %}active{% endif %}"
+          {% if request.url.path == '/cip-services' %}aria-current="page"{% endif %}
+        >
+          CIP Services
+        </a>
+      {% endif %}
+
+      {% if has_passenger_db %}
+        <a
+          href="{{ request.url_for('passenger_database') }}"
+          class="list-group-item list-group-item-action {% if request.url.path.startswith('/passenger-database') %}active{% endif %}"
+          {% if request.url.path.startswith('/passenger-database') %}aria-current="page"{% endif %}
+        >
+          Passenger Database
+        </a>
+      {% endif %}
+
+      {% if app_product == "all" %}
+        <a
+          href="{{ request.url_for('visa') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/visa' %}active{% endif %}"
+          {% if request.url.path == '/visa' %}aria-current="page"{% endif %}
+        >
+          Visa
+        </a>
+      {% endif %}
+
+      <a
+        href="{{ request.url_for('transactions') }}"
+        id="userNavTransactions"
+        class="list-group-item list-group-item-action {% if request.url.path.startswith('/transactions') %}active{% endif %}"
+        {% if request.url.path.startswith('/transactions') %}aria-current="page"{% endif %}
+      >
+        Transactions
+      </a>
+    </div>
+
+    {% if has_esim and app_product in ["all", "esim"] %}
+      <div class="panel-section-label">Reports</div>
+      <div class="list-group nav-list">
+        <a
+          href="{{ request.url_for('report_esim') }}"
+          class="list-group-item list-group-item-action {% if request.url.path.startswith('/reports/esim') %}active{% endif %}"
+          {% if request.url.path.startswith('/reports/esim') %}aria-current="page"{% endif %}
+        >
+          <span class="report-ico">e</span>
+          eSIM Orders
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>

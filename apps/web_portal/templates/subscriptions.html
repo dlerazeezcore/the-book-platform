@@ -1,0 +1,373 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <div class="h5 mb-1">Subscriptions</div>
+          <div class="text-muted small">Buy add-ons using your wallet credit, and check expiry dates.</div>
+        </div>
+        {% if balances_user %}
+          <div class="d-flex align-items-center gap-2">
+            <div class="chip blue">Credit: {{ fmt_iqd(balances_user.credit) }}</div>
+            <div class="chip">Cash: {{ fmt_iqd(balances_user.cash) }}</div>
+          </div>
+        {% endif %}
+      </div>
+
+      <hr class="my-3"/>
+
+      <ul class="nav nav-pills gap-2" id="subsTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tabBuy" data-bs-toggle="pill" data-bs-target="#paneBuy" type="button" role="tab">Buy</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tabCheck" data-bs-toggle="pill" data-bs-target="#paneCheck" type="button" role="tab">Check</button>
+        </li>
+      </ul>
+
+      <div class="tab-content mt-3">
+        <div class="tab-pane fade show active" id="paneBuy" role="tabpanel">
+          <div class="row g-3">
+            <div class="col-12 col-lg-7">
+              <div class="fw-semibold mb-2">Available add-ons</div>
+
+              {% if is_sub_user %}
+                <div class="alert alert-warning">Sub users cannot purchase subscriptions. Please contact your company admin.</div>
+              {% endif %}
+
+              <div class="list-group rounded-3 overflow-hidden">
+                {% for addon_id, addon in (addons or {}).items() %}
+                  <div class="list-group-item">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                      <div>
+                        <div class="fw-semibold">{{ addon.name or addon_id }}</div>
+                        {% if addon.description %}
+                          <div class="text-muted small">{{ addon.description }}</div>
+                        {% endif %}
+                        <div class="text-muted small mt-1">
+                          Monthly: {{ fmt_iqd(addon.monthly_price or 0) }} •
+                          Yearly: {{ fmt_iqd(addon.yearly_price or 0) }}
+                        </div>
+                      </div>
+                      <div class="d-flex flex-column gap-2" style="min-width: 160px;">
+                        <button class="btn btn-sm btn-primary" data-addon="{{ addon_id }}" data-period="monthly" {% if is_sub_user %}disabled{% endif %}>Buy Monthly</button>
+                        <button class="btn btn-sm btn-outline-primary" data-addon="{{ addon_id }}" data-period="yearly" {% if is_sub_user %}disabled{% endif %}>Buy Yearly</button>
+                      </div>
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+
+              <div class="alert alert-info mt-3 mb-0">
+                After purchase, you will receive an activation email with the expiry date.
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-5">
+              <div class="fw-semibold mb-2">Status</div>
+              <div id="subsStatus" class="alert alert-light border mb-0">Ready.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="paneCheck" role="tabpanel">
+          <div class="fw-semibold mb-2">Your subscriptions</div>
+          <div id="subsList" class="text-muted">Loading…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Confirm purchase modal -->
+<div class="modal fade" id="confirmSubModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirm subscription</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <div class="fw-semibold" id="confirmAddonName">—</div>
+          <div class="text-muted small" id="confirmPeriod">—</div>
+        </div>
+
+        <div class="border rounded-3 p-2 mb-3">
+          <div class="d-flex justify-content-between"><span>Charge</span><span class="fw-semibold" id="confirmCharge">—</span></div>
+          <div class="d-flex justify-content-between"><span>Starts</span><span id="confirmStart">—</span></div>
+          <div class="d-flex justify-content-between"><span>Ends</span><span id="confirmEnd">—</span></div>
+        </div>
+
+        <div class="mb-3">
+          <div class="fw-semibold mb-2">Payment method</div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="subPayment" id="payCredit" value="credit" checked>
+            <label class="form-check-label" for="payCredit">Credit</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="subPayment" id="payCash" value="cash">
+            <label class="form-check-label" for="payCash">Cash</label>
+          </div>
+        </div>
+
+        <div class="mb-2">
+          <div class="fw-semibold mb-2">Billing type</div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="subRecurring" id="recurringOn" value="recurring" checked>
+            <label class="form-check-label" for="recurringOn">Recurring</label>
+          </div>
+          <div class="form-check">
+            <input class="form-check-input" type="radio" name="subRecurring" id="recurringOff" value="onetime">
+            <label class="form-check-label" for="recurringOff">One-time</label>
+          </div>
+        </div>
+
+        <div class="alert alert-warning d-none" id="confirmError">—</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="confirmSubBuy">Confirm purchase</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const statusEl = document.getElementById("subsStatus");
+    const listEl = document.getElementById("subsList");
+    const confirmModalEl = document.getElementById("confirmSubModal");
+    const confirmModal = confirmModalEl ? new bootstrap.Modal(confirmModalEl) : null;
+    const confirmAddonName = document.getElementById("confirmAddonName");
+    const confirmPeriod = document.getElementById("confirmPeriod");
+    const confirmCharge = document.getElementById("confirmCharge");
+    const confirmStart = document.getElementById("confirmStart");
+    const confirmEnd = document.getElementById("confirmEnd");
+    const confirmError = document.getElementById("confirmError");
+    const confirmBtn = document.getElementById("confirmSubBuy");
+
+    let currentAddon = null;
+    let currentPeriod = null;
+    let latestPreview = null;
+
+    const setStatus = (txt, kind="light") => {
+      if (!statusEl) return;
+      statusEl.className = "alert alert-" + kind;
+      statusEl.innerText = txt;
+    };
+
+    const loadCheck = async () => {
+      if (!listEl) return;
+      listEl.innerText = "Loading…";
+      try {
+        const r = await fetch("/subscriptions/api/check");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          listEl.innerText = data.error || "Failed to load.";
+          return;
+        }
+        const subs = data.subscriptions || [];
+        const activeAddons = data.active_addons || [];
+        if (!subs.length) {
+          listEl.innerHTML = '<div class="text-muted">No active subscriptions yet.</div>';
+        } else {
+          let html = '<div class="list-group rounded-3 overflow-hidden">';
+          for (const s of subs) {
+            const recurring = (s.recurring === true);
+            html += `
+              <div class="list-group-item">
+                <div class="d-flex align-items-start justify-content-between gap-3">
+                  <div>
+                    <div class="fw-semibold">${s.addon_name || s.addon}</div>
+                    <div class="text-muted small">Period: ${s.period || ""}</div>
+                    <div class="text-muted small">Start: ${s.start_at || ""}</div>
+                    <div class="text-muted small">Expires: ${s.end_at || ""}</div>
+                    <div class="text-muted small">Billing: ${recurring ? "Recurring" : "One-time"}</div>
+                  </div>
+                  <div class="d-flex flex-column align-items-end gap-2">
+                    <span class="badge text-bg-${(s.status === "active") ? "success" : "secondary"}">${s.status || ""}</span>
+                    ${recurring ? `<button class="btn btn-sm btn-outline-danger" data-stop-recurring="${s.id}">Stop recurring</button>` : ""}
+                  </div>
+                </div>
+              </div>`;
+          }
+          html += "</div>";
+          listEl.innerHTML = html;
+        }
+
+        // Disable buy buttons for active add-ons
+        document.querySelectorAll("button[data-addon][data-period]").forEach(btn => {
+          const addon = btn.getAttribute("data-addon");
+          if (activeAddons.includes(addon)) {
+            btn.disabled = true;
+            if (!btn.dataset.originalText) btn.dataset.originalText = btn.textContent;
+            btn.textContent = "Active";
+          } else {
+            btn.disabled = false;
+            if (btn.dataset.originalText) btn.textContent = btn.dataset.originalText;
+          }
+        });
+      } catch (e) {
+        listEl.innerText = String(e || "Failed to load.");
+      }
+    };
+
+    const formatDate = (iso) => {
+      try {
+        if (!iso) return "—";
+        const dt = new Date(iso);
+        if (Number.isNaN(dt.getTime())) return String(iso);
+        return dt.toLocaleDateString();
+      } catch {
+        return String(iso || "—");
+      }
+    };
+
+    const formatMoney = (amount, currency) => {
+      try {
+        const n = Number(amount || 0);
+        const txt = Number.isFinite(n) ? n.toLocaleString() : String(amount || "0");
+        return (currency ? currency + " " : "") + txt;
+      } catch {
+        return (currency ? currency + " " : "") + String(amount || "0");
+      }
+    };
+
+    const showConfirmError = (msg) => {
+      if (!confirmError) return;
+      if (!msg) {
+        confirmError.classList.add("d-none");
+        confirmError.textContent = "";
+      } else {
+        confirmError.classList.remove("d-none");
+        confirmError.textContent = msg;
+      }
+    };
+
+    document.querySelectorAll("button[data-addon][data-period]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const addon = btn.getAttribute("data-addon");
+        const period = btn.getAttribute("data-period");
+        currentAddon = addon;
+        currentPeriod = period;
+        latestPreview = null;
+        showConfirmError("");
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        if (confirmModal) confirmModal.show();
+        if (confirmAddonName) confirmAddonName.textContent = "Loading…";
+        if (confirmPeriod) confirmPeriod.textContent = "—";
+        if (confirmCharge) confirmCharge.textContent = "—";
+        if (confirmStart) confirmStart.textContent = "—";
+        if (confirmEnd) confirmEnd.textContent = "—";
+
+        try {
+          const r = await fetch("/subscriptions/api/preview", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({addon, period})
+          });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            showConfirmError(data.error || "Failed to load preview.");
+            return;
+          }
+
+          const p = data.preview || {};
+          latestPreview = p;
+          if (confirmAddonName) confirmAddonName.textContent = p.addon_name || p.addon || "";
+          if (confirmPeriod) confirmPeriod.textContent = "Period: " + (p.period || "");
+          if (confirmCharge) confirmCharge.textContent = formatMoney(p.price, p.currency);
+          if (confirmStart) confirmStart.textContent = formatDate(p.start_at);
+          if (confirmEnd) confirmEnd.textContent = formatDate(p.end_at);
+
+          if (data.already_active) {
+            showConfirmError("You already have an active subscription. Expires: " + (data.active_until || ""));
+            if (confirmBtn) confirmBtn.disabled = true;
+          } else {
+            showConfirmError("");
+            if (confirmBtn) confirmBtn.disabled = false;
+          }
+        } catch (e) {
+          showConfirmError(String(e || "Failed to load preview."));
+        }
+      });
+    });
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", async () => {
+        if (!currentAddon || !currentPeriod) return;
+        const method = document.querySelector('input[name="subPayment"]:checked')?.value || "credit";
+        const recurringChoice = document.querySelector('input[name="subRecurring"]:checked')?.value || "recurring";
+        const recurring = recurringChoice === "recurring";
+
+        confirmBtn.disabled = true;
+        showConfirmError("");
+        setStatus("Purchasing…", "info");
+        try {
+          const r = await fetch("/subscriptions/api/buy", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({addon: currentAddon, period: currentPeriod, payment_method: method, recurring})
+          });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            showConfirmError(data.error || "Purchase failed.");
+            setStatus(data.error || "Purchase failed.", "danger");
+            confirmBtn.disabled = false;
+            return;
+          }
+
+          setStatus("Purchased and activated. Email notification: " + (data.email_sent ? "sent" : "failed"), "success");
+          if (confirmModal) confirmModal.hide();
+          await loadCheck();
+        } catch (e) {
+          showConfirmError(String(e || "Purchase failed."));
+          setStatus(String(e || "Purchase failed."), "danger");
+        } finally {
+          confirmBtn.disabled = false;
+        }
+      });
+    }
+
+    document.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-stop-recurring]");
+      if (!btn) return;
+      const subId = btn.getAttribute("data-stop-recurring");
+      btn.disabled = true;
+      setStatus("Stopping recurring…", "info");
+      try {
+        const r = await fetch("/subscriptions/api/stop-recurring", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify({sub_id: subId})
+        });
+        const data = await r.json();
+        if (data.status !== "ok") {
+          setStatus(data.error || "Failed to stop recurring.", "danger");
+        } else {
+          setStatus("Recurring stopped. Subscription remains active until expiry.", "success");
+          await loadCheck();
+        }
+      } catch (err) {
+        setStatus(String(err || "Failed to stop recurring."), "danger");
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // Load check tab initially and whenever it's shown
+    loadCheck();
+    const tabCheck = document.getElementById("tabCheck");
+    if (tabCheck) tabCheck.addEventListener("shown.bs.tab", loadCheck);
+  });
+</script>
+{% endblock %}

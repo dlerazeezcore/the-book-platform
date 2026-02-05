@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or "The Book for now" }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ request.url_for('static', path='styles.css') }}" rel="stylesheet">
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <nav class="navbar topbar">
+    <div class="container app-shell py-2">
+      <div class="d-flex align-items-center justify-content-between w-100 gap-3">
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-outline-dark mobile-only" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNav" aria-controls="mobileNav">
+            Menu
+          </button>
+          <a class="brand text-decoration-none" id="brandHome" href="{{ request.url_for('index') }}?clear=1">
+            <span class="brand-dot">B</span>
+            <span>The Book for now</span>
+          </a>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('transactions') }}">Transactions</a>
+          {% if not is_sub_user %}
+            <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('subscriptions') }}">Subscriptions</a>
+          {% endif %}
+          {% if show_admin and app_product in ["all", "admin"] %}
+            <a class="btn btn-sm btn-outline-dark" href="{{ admin_url }}">Admin</a>
+          {% endif %}
+          {% if show_pending and app_product in ["all", "admin"] %}
+            <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('pending') }}">Pending</a>
+          {% endif %}
+
+          <div class="ms-2 d-flex align-items-center gap-2">
+            {% if current_user %}
+              <span class="chip blue" title="Logged in">
+                {% set _company = (balances_user.company_name if balances_user else (current_user.company_name or current_user.company or '')) %}
+                {% if _company %}
+                  <span class="me-1" style="opacity:.85">{{ _company }}</span>
+                  <span style="opacity:.65">·</span>
+                {% endif %}
+                <span class="ms-1">{{ current_user.username or current_user.email }}</span>
+                {% if is_super_admin %}
+                  <span class="ms-1 badge text-bg-dark">Super admin</span>
+                {% endif %}
+              </span>
+
+              {% if balances_user %}
+                <span class="chip" title="Balances">
+                  Cash: <span class="fw-semibold">{{ fmt_iqd(balances_user.cash or 0) }}</span>
+                  <span class="mx-1">·</span>
+                  Credit: <span class="fw-semibold">{{ fmt_iqd(balances_user.credit or 0) }}</span>
+                </span>
+                <button class="btn btn-sm btn-outline-dark" type="button" id="addCashBtn">Add cash</button>
+              {% endif %}
+
+              <a class="btn btn-sm btn-outline-dark" href="/logout">Logout</a>
+            {% else %}
+              <a class="btn btn-sm btn-outline-dark" href="/login">Login</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  {% if active_announcements and active_announcements|length %}
+    <div class="announcement-bar">
+      <div class="container app-shell py-2">
+        <div class="d-flex flex-column gap-2">
+          {% for a in active_announcements %}
+            <div class="announcement-item">
+              <div class="fw-semibold">{{ a.title }}</div>
+              <div class="small text-muted">{{ a.description }}</div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% endif %}
+
+  <div class="app-layout">
+    <aside class="app-left">
+      <!-- Anchor keeps space reserved in the layout -->
+      <div id="userPanelAnchor" style="width: 340px;"></div>
+    </aside>
+
+    <section class="app-main">
+      {% block content %}{% endblock %}
+    </section>
+  </div>
+
+  <!-- Fixed User Panel (locked to anchor position) -->
+  <div
+    id="userPanelFixed"
+    style="position: fixed; top: 0; z-index: 10;"
+  >
+    {% include "user_panel.html" %}
+  </div>
+
+  <!-- Mobile Navigation Drawer -->
+  <div class="offcanvas offcanvas-start d-md-none" tabindex="-1" id="mobileNav" aria-labelledby="mobileNavLabel">
+    <div class="offcanvas-header">
+      <div class="fw-semibold" id="mobileNavLabel">Menu</div>
+      <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+      <div class="list-group">
+        {% if app_product in ["all", "flights"] %}
+          <a
+            href="{{ request.url_for('index') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/' %}active{% endif %}"
+            {% if request.url.path == '/' %}aria-current="page"{% endif %}
+          >
+            Search Flights
+          </a>
+        {% endif %}
+        {% if app_product in ["all", "hotels"] %}
+          <a
+            href="{{ request.url_for('search_hotels') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/hotels' %}active{% endif %}"
+            {% if request.url.path == '/hotels' %}aria-current="page"{% endif %}
+          >
+            Search Hotels
+          </a>
+        {% endif %}
+        {% if has_esim and app_product in ["all", "esim"] %}
+          <a
+            href="{{ request.url_for('esim') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/esim' %}active{% endif %}"
+            {% if request.url.path == '/esim' %}aria-current="page"{% endif %}
+          >
+            Esim
+          </a>
+        {% endif %}
+        {% if app_product == "all" %}
+          <a
+            href="{{ request.url_for('airport_transportation') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/airport-transportation' %}active{% endif %}"
+            {% if request.url.path == '/airport-transportation' %}aria-current="page"{% endif %}
+          >
+            Airport Transportation
+          </a>
+          <a
+            href="{{ request.url_for('car_rental') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/car-rental' %}active{% endif %}"
+            {% if request.url.path == '/car-rental' %}aria-current="page"{% endif %}
+          >
+            Car Rental
+          </a>
+          <a
+            href="{{ request.url_for('cip_services') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/cip-services' %}active{% endif %}"
+            {% if request.url.path == '/cip-services' %}aria-current="page"{% endif %}
+          >
+            CIP Services
+          </a>
+        {% endif %}
+        {% if has_passenger_db %}
+          <a
+            href="{{ request.url_for('passenger_database') }}"
+            class="list-group-item list-group-item-action {% if request.url.path.startswith('/passenger-database') %}active{% endif %}"
+            {% if request.url.path.startswith('/passenger-database') %}aria-current="page"{% endif %}
+          >
+            Passenger Database
+          </a>
+        {% endif %}
+        {% if app_product == "all" %}
+          <a
+            href="{{ request.url_for('visa') }}"
+            class="list-group-item list-group-item-action {% if request.url.path == '/visa' %}active{% endif %}"
+            {% if request.url.path == '/visa' %}aria-current="page"{% endif %}
+          >
+            Visa
+          </a>
+        {% endif %}
+        {% if has_esim and app_product in ["all", "esim"] %}
+          <div class="text-muted small mt-3">Reports</div>
+          <a
+            href="{{ request.url_for('report_esim') }}"
+            class="list-group-item list-group-item-action {% if request.url.path.startswith('/reports/esim') %}active{% endif %}"
+            {% if request.url.path.startswith('/reports/esim') %}aria-current="page"{% endif %}
+          >
+            <span class="report-ico">e</span>
+            eSIM Orders
+          </a>
+        {% endif %}
+        <a
+          href="{{ request.url_for('transactions') }}"
+          class="list-group-item list-group-item-action {% if request.url.path.startswith('/transactions') %}active{% endif %}"
+          {% if request.url.path.startswith('/transactions') %}aria-current="page"{% endif %}
+        >
+          Transactions
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- FIB Add Cash Modal -->
+  <div class="modal fade" id="fibPayModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="fw-semibold">Add Cash (FIB)</div>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Amount (IQD)</label>
+            <input class="form-control" id="fibPayAmount" type="number" min="1000" step="500" placeholder="e.g. 5000">
+          </div>
+          <div class="alert alert-info d-none" id="fibPayStatus"></div>
+          <div class="d-none" id="fibPayResult">
+            <div class="d-flex align-items-center gap-3">
+              <img id="fibPayQr" alt="FIB QR" style="width: 160px; height: 160px; border-radius: 12px; border: 1px solid #e5e7eb;">
+              <div>
+                <div class="text-muted small">Payment link</div>
+                <a id="fibPayLink" class="mono" href="#" target="_blank" rel="noopener"></a>
+                <div class="text-muted small mt-2">Reference</div>
+                <div id="fibPayRef" class="mono"></div>
+              </div>
+            </div>
+            <div class="text-muted small mt-3">Complete the payment to add cash to your balance.</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-primary" type="button" id="fibPayCreateBtn">Create payment</button>
+          <button class="btn btn-primary d-none" type="button" id="fibPayContinueBtn">Payment completed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const anchor = document.getElementById("userPanelAnchor");
+      const fixed = document.getElementById("userPanelFixed");
+      if (!anchor || !fixed) return;
+
+      let baseTop = null;
+      const updateHeight = () => {
+        const top = Number.isFinite(baseTop) ? baseTop : 0;
+        const h = Math.max(0, window.innerHeight - top);
+        fixed.style.height = h ? h + "px" : "";
+      };
+
+      const sync = (setTop = false) => {
+        const r = anchor.getBoundingClientRect();
+        fixed.style.left = r.left + "px";
+        fixed.style.width = r.width + "px";
+        if (setTop || baseTop === null) {
+          baseTop = r.top;
+          fixed.style.top = Math.max(baseTop, 0) + "px";
+        }
+        updateHeight();
+      };
+
+      sync(true);
+      window.addEventListener("resize", () => sync(true));
+      window.addEventListener("scroll", () => sync(false), { passive: true });
+
+      window.addEventListener("resize", updateHeight);
+    });
+  </script>
+
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      // Keep the payment page localStorage model in-sync with the logged-in session user.
+      // For sub users, we publish the *company admin* wallet as the active balances source.
+      try {
+        const USERSKEY = "b2b_users_v1";
+        const ACTIVE = "active_user_id_v1";
+
+        const id = "{{ (balances_user.id if balances_user else '') }}";
+        if (id) {
+          const username = "{{ (balances_user.username or balances_user.email or '') if balances_user else '' }}";
+          const email = "{{ (balances_user.email or '') if balances_user else '' }}";
+          const cashRaw = "{{ (balances_user.cash or 0) if balances_user else 0 }}";
+          const creditRaw = "{{ (balances_user.credit or 0) if balances_user else 0 }}";
+
+          const parseMoney = (v) => {
+            const s = String(v || "");
+            const m = s.match(/([0-9][0-9,]*)(?:\.(\d+))?/);
+            if (!m) return 0;
+            const n = (m[1] || "").replaceAll(",", "") + (m[2] ? "." + m[2] : "");
+            const f = parseFloat(n);
+            return Number.isFinite(f) ? f : 0;
+          };
+
+          const userObj = {
+            id: String(id),
+            username: String(username || email || id),
+            email: String(email || ""),
+            cash: parseMoney(cashRaw),
+            credit: parseMoney(creditRaw),
+            active: {{ "false" if (current_user and current_user.active == False) else "true" }},
+          };
+
+          localStorage.setItem(USERSKEY, JSON.stringify([userObj]));
+          localStorage.setItem(ACTIVE, String(id));
+        }
+      } catch (e) {}
+
+      {% if not is_super_admin %}
+      // Hide any "Pending" links for non-super-admin users (including inside side panels).
+      try {
+        document.querySelectorAll('a[href="/pending"], a[href^="/pending"]').forEach((a) => {
+          a.style.display = "none";
+        });
+      } catch (e) {}
+      {% endif %}
+
+      {% if not has_passenger_db %}
+      // Hide Passenger Database navigation if the add-on is not active for this user.
+      try {
+        document.querySelectorAll('a[href="/passenger-database"], a[href^="/passenger-database"]').forEach((a) => {
+          a.style.display = "none";
+        });
+      } catch (e) {}
+      {% endif %}
+
+      // FIB Add Cash modal (shared helper)
+      const fibModalEl = document.getElementById("fibPayModal");
+      const fibModal = fibModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(fibModalEl) : null;
+      const fibAmount = document.getElementById("fibPayAmount");
+      const fibCreateBtn = document.getElementById("fibPayCreateBtn");
+      const fibContinueBtn = document.getElementById("fibPayContinueBtn");
+      const fibStatus = document.getElementById("fibPayStatus");
+      const fibResult = document.getElementById("fibPayResult");
+      const fibQr = document.getElementById("fibPayQr");
+      const fibLink = document.getElementById("fibPayLink");
+      const fibRef = document.getElementById("fibPayRef");
+
+      const setFibStatus = (msg, kind = "info") => {
+        if (!fibStatus) return;
+        if (!msg) { fibStatus.classList.add("d-none"); fibStatus.textContent = ""; return; }
+        fibStatus.className = "alert alert-" + kind;
+        fibStatus.textContent = msg;
+        fibStatus.classList.remove("d-none");
+      };
+
+      const showFibResult = (data) => {
+        if (!fibResult) return;
+        fibResult.classList.remove("d-none");
+        if (fibAmount) fibAmount.readOnly = true;
+        if (fibQr) fibQr.src = data.qr_url || "";
+        if (fibLink) { fibLink.href = data.payment_link || "#"; fibLink.textContent = data.payment_link || ""; }
+        if (fibRef) fibRef.textContent = data.reference || "";
+      };
+
+      window.createFibPayment = async (amount, description = "Add cash") => {
+        const payload = { amount: Number(amount || 0), description };
+        const resp = await fetch("/other-apis-data/fib/create-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data?.detail || data?.error || "Failed to create payment.");
+        }
+        return data;
+      };
+
+      const addCashBtn = document.getElementById("addCashBtn");
+      if (addCashBtn && fibModal) {
+        addCashBtn.addEventListener("click", () => {
+          if (fibAmount) fibAmount.value = "";
+          if (fibAmount) fibAmount.readOnly = false;
+          if (fibResult) fibResult.classList.add("d-none");
+          setFibStatus("");
+          if (fibContinueBtn) fibContinueBtn.classList.add("d-none");
+          if (fibCreateBtn) fibCreateBtn.classList.remove("d-none");
+          fibModal.show();
+        });
+      }
+
+      if (fibCreateBtn) {
+        fibCreateBtn.addEventListener("click", async () => {
+          const amt = Number(fibAmount?.value || 0);
+          if (!amt || amt <= 0) {
+            setFibStatus("Enter a valid amount.", "warning");
+            return;
+          }
+          setFibStatus("Creating payment link…");
+          try {
+            const data = await window.createFibPayment(amt, "Add cash");
+            setFibStatus("");
+            showFibResult(data);
+          } catch (e) {
+            setFibStatus(String(e), "danger");
+          }
+        });
+      }
+    });
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

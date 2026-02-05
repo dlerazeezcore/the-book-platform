@@ -1,0 +1,594 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Permissions</div>
+              <div class="text-muted small">
+                Control which provider APIs are active, and apply per-provider filters (allowed/blocked vendors & airlines) and ticketing schedules.
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <a class="btn btn-outline-secondary btn-sm" href="{{ request.url_for('admin') }}">Back</a>
+              <button class="btn btn-outline-secondary btn-sm" id="refreshBtn" type="button">Refresh</button>
+              <button class="btn btn-primary btn-sm" id="saveBtn" type="button">Save</button>
+            </div>
+          </div>
+
+          <div class="alert alert-info mt-3 mb-0 d-none" id="statusBox"></div>
+
+          <hr class="my-3" />
+
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+            <div class="fw-semibold">Providers</div>
+
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <input class="form-control form-control-sm" id="newProviderCode" style="max-width: 160px" placeholder="Provider code" />
+              <button class="btn btn-outline-secondary btn-sm" id="addProviderBtn" type="button">Add provider</button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="min-width: 140px;">Provider</th>
+                  <th style="min-width: 180px;">Availability</th>
+                  <th style="min-width: 260px;">Ticketing mode</th>
+                  <th style="min-width: 140px;">Settings</th>
+                  <th style="min-width: 120px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="providersTbody"></tbody>
+            </table>
+          </div>
+
+          <div class="mt-3 text-muted small">
+            Tip: Set <span class="mono">Availability only</span> to collect bookings as pending while issuing tickets offline.
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- Provider settings modal (per provider) -->
+<div class="modal fade" id="providerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <div class="fw-semibold">Provider settings</div>
+          <div class="text-muted small">Provider: <span id="modalProviderName" class="mono"></span></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <div class="card border-0 shadow-sm">
+          <div class="card-body">
+            <div class="fw-semibold">Filters</div>
+            <div class="text-muted small mb-3">Filters affect search results. If disabled, everything returns.</div>
+
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="filtersEnabled">
+              <label class="form-check-label" for="filtersEnabled">Enable filters</label>
+            </div>
+            <div class="form-check form-switch mt-2">
+              <input class="form-check-input" type="checkbox" id="seatsEstimationEnabled">
+              <label class="form-check-label" for="seatsEstimationEnabled">Enable seat estimation (extra searches)</label>
+            </div>
+
+            <div class="row g-3 mt-2">
+              <div class="col-12 col-lg-6">
+                <label class="form-label">Allowed vendors (comma separated)</label>
+                <input class="form-control" id="allowedSuppliers" placeholder="e.g. OTA, Provider2" />
+                <div class="text-muted small mt-1">If set, only these vendors are allowed (whitelist). Blocked list still applies.</div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <label class="form-label">Blocked vendors (comma separated)</label>
+                <input class="form-control" id="blockedSuppliers" placeholder="e.g. OTA, Provider2" />
+              </div>
+
+              <div class="col-12 col-lg-6">
+                <label class="form-label">Allowed airlines (IATA codes, comma separated)</label>
+                <input class="form-control" id="allowedAirlines" placeholder="e.g. IA, TK" />
+                <div class="text-muted small mt-1">If set, only these airlines are allowed (whitelist). Blocked list still applies.</div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <label class="form-label">Blocked airlines (IATA codes, comma separated)</label>
+                <input class="form-control" id="blockedAirlines" placeholder="e.g. IA, TK" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3"/>
+
+        <div class="card border-0 shadow-sm">
+          <div class="card-body">
+            <div class="fw-semibold">Ticketing schedule</div>
+            <div class="text-muted small mb-3">Schedule affects ticketing only. Availability can remain on.</div>
+
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" id="scheduleEnabled">
+              <label class="form-check-label" for="scheduleEnabled">Enable schedule</label>
+            </div>
+
+            <div class="row g-2 align-items-end mt-2">
+              <div class="col-12 col-md-4">
+                <label class="form-label">Timezone</label>
+                <input class="form-control" id="scheduleTz" placeholder="Asia/Baghdad" />
+              </div>
+              <div class="col-12 col-md-8">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="fw-semibold">Time windows</div>
+                  <button class="btn btn-outline-secondary btn-sm" id="addRuleBtn" type="button">Add window</button>
+                </div>
+                <div class="text-muted small mb-2">If current time matches any window, ticketing is live.</div>
+              </div>
+            </div>
+
+            <div class="mt-2">
+              <div id="rulesWrap" class="vstack gap-2"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+        <button class="btn btn-primary" type="button" id="modalSaveBtn">Save settings</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  const esc = (s) => String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+  const statusBox = document.getElementById("statusBox");
+  const showStatus = (msg, kind="info") => {
+    if (!statusBox) return;
+    statusBox.className = "alert alert-" + kind + " mt-3 mb-0";
+    statusBox.textContent = msg;
+    statusBox.classList.remove("d-none");
+  };
+  const hideStatus = () => { if (statusBox) statusBox.classList.add("d-none"); };
+
+  const providersTbody = document.getElementById("providersTbody");
+
+  const rulesWrap = document.getElementById("rulesWrap");
+
+  const mkRuleRow = (rule) => {
+    const id = "r_" + Math.random().toString(16).slice(2);
+    const days = Array.isArray(rule.days) ? rule.days : [0,1,2,3,4,5,6];
+    const start = rule.start || "00:00";
+    const end = rule.end || "23:59";
+
+    const dayNames = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+    const dayChecks = dayNames.map((n, i) => {
+      const checked = days.includes(i) ? "checked" : "";
+      return `
+        <div class="form-check form-check-inline me-2">
+          <input class="form-check-input" type="checkbox" id="${id}_d${i}" ${checked} />
+          <label class="form-check-label small" for="${id}_d${i}">${n}</label>
+        </div>
+      `;
+    }).join("");
+
+    const row = document.createElement("div");
+    row.className = "border rounded-3 p-2";
+    row.dataset.ruleId = id;
+    row.innerHTML = `
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div>
+            <label class="form-label small mb-1">Start</label>
+            <input class="form-control form-control-sm" type="time" id="${id}_start" value="${esc(start)}">
+          </div>
+          <div>
+            <label class="form-label small mb-1">End</label>
+            <input class="form-control form-control-sm" type="time" id="${id}_end" value="${esc(end)}">
+          </div>
+        </div>
+        <button class="btn btn-outline-danger btn-sm" type="button" data-del="${id}">Remove</button>
+      </div>
+      <div class="mt-2">${dayChecks}</div>
+    `;
+    row.querySelector("[data-del]").addEventListener("click", () => row.remove());
+    return row;
+  };
+
+  const readRules = () => {
+    const rows = Array.from(document.querySelectorAll("#rulesWrap [data-rule-id]"));
+    return rows.map((row) => {
+      const id = row.dataset.ruleId;
+      const start = document.getElementById(id + "_start")?.value || "00:00";
+      const end = document.getElementById(id + "_end")?.value || "23:59";
+      const days = [];
+      for (let i=0;i<7;i++) {
+        const cb = document.getElementById(id + "_d" + i);
+        if (cb && cb.checked) days.push(i);
+      }
+      return { days, start, end };
+    }).filter((r) => r.days.length > 0);
+  };
+
+  let currentCfg = { providers: {} };
+
+  let providerModal = null;
+  let editingProviderId = null;
+
+  const normalizeCfg = (cfg) => {
+    if (!cfg || typeof cfg !== "object") cfg = {};
+    if (!cfg.providers || typeof cfg.providers !== "object") cfg.providers = {};
+    return cfg;
+  };
+
+  const ensureProviderDefaults = (p) => {
+    if (!p || typeof p !== "object") p = {};
+    if (typeof p.availability_enabled !== "boolean") p.availability_enabled = true;
+    if (!p.ticketing_mode) p.ticketing_mode = "full";
+
+    if (typeof p.filters_enabled !== "boolean") p.filters_enabled = true;
+    if (typeof p.seats_estimation_enabled !== "boolean") p.seats_estimation_enabled = true;
+    if (!Array.isArray(p.allowed_suppliers)) p.allowed_suppliers = [];
+    if (!Array.isArray(p.blocked_suppliers)) p.blocked_suppliers = [];
+    if (!Array.isArray(p.allowed_airlines)) p.allowed_airlines = [];
+    if (!Array.isArray(p.blocked_airlines)) p.blocked_airlines = [];
+
+    if (!p.ticketing_schedule || typeof p.ticketing_schedule !== "object") {
+      p.ticketing_schedule = { enabled: false, timezone: "Asia/Baghdad", rules: [{days:[0,1,2,3,4,5,6], start:"00:00", end:"23:59"}] };
+    }
+    if (!Array.isArray(p.ticketing_schedule.rules) || !p.ticketing_schedule.rules.length) {
+      p.ticketing_schedule.rules = [{days:[0,1,2,3,4,5,6], start:"00:00", end:"23:59"}];
+    }
+    return p;
+  };
+
+  const openProviderModal = (code) => {
+    if (!code || !currentCfg.providers || !currentCfg.providers[code]) return;
+    editingProviderId = code;
+
+    const nameEl = document.getElementById("modalProviderName");
+    if (nameEl) nameEl.textContent = code;
+
+    // populate inputs
+    applyModalFromProvider(code);
+
+    const modalEl = document.getElementById("providerModal");
+    if (!modalEl) return;
+
+    if (window.bootstrap && window.bootstrap.Modal) {
+      providerModal = providerModal || new window.bootstrap.Modal(modalEl);
+      providerModal.show();
+    } else {
+      modalEl.classList.add("show");
+      modalEl.style.display = "block";
+      modalEl.removeAttribute("aria-hidden");
+    }
+  };
+
+  const applyModalFromProvider = (code) => {
+    hideStatus();
+    if (!code || !currentCfg.providers[code]) return;
+
+    const p = ensureProviderDefaults(currentCfg.providers[code]);
+    currentCfg.providers[code] = p;
+
+    document.getElementById("filtersEnabled").checked = (p.filters_enabled !== false);
+    document.getElementById("seatsEstimationEnabled").checked = (p.seats_estimation_enabled !== false);
+
+    document.getElementById("allowedSuppliers").value = (p.allowed_suppliers || []).join(", ");
+    document.getElementById("blockedSuppliers").value = (p.blocked_suppliers || []).join(", ");
+
+    document.getElementById("allowedAirlines").value = (p.allowed_airlines || []).join(", ");
+    document.getElementById("blockedAirlines").value = (p.blocked_airlines || []).join(", ");
+
+    const sch = p.ticketing_schedule || {};
+    document.getElementById("scheduleEnabled").checked = !!sch.enabled;
+    document.getElementById("scheduleTz").value = sch.timezone || "Asia/Baghdad";
+
+    rulesWrap.innerHTML = "";
+    const rules = Array.isArray(sch.rules) && sch.rules.length ? sch.rules : [{days:[0,1,2,3,4,5,6], start:"00:00", end:"23:59"}];
+    rules.forEach((r) => rulesWrap.appendChild(mkRuleRow(r)));
+  };
+
+  const persistModalToProvider = (code) => {
+    if (!code || !currentCfg.providers[code]) return;
+
+    const p = ensureProviderDefaults(currentCfg.providers[code]);
+
+    p.filters_enabled = !!document.getElementById("filtersEnabled").checked;
+    p.seats_estimation_enabled = !!document.getElementById("seatsEstimationEnabled").checked;
+
+    p.allowed_suppliers = (document.getElementById("allowedSuppliers").value || "")
+      .split(",").map((s) => s.trim()).filter(Boolean);
+
+    p.blocked_suppliers = (document.getElementById("blockedSuppliers").value || "")
+      .split(",").map((s) => s.trim()).filter(Boolean);
+
+    p.allowed_airlines = (document.getElementById("allowedAirlines").value || "")
+      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+
+    p.blocked_airlines = (document.getElementById("blockedAirlines").value || "")
+      .split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+
+    p.ticketing_schedule = {
+      enabled: !!document.getElementById("scheduleEnabled").checked,
+      timezone: (document.getElementById("scheduleTz").value || "Asia/Baghdad").trim() || "Asia/Baghdad",
+      rules: readRules()
+    };
+
+    currentCfg.providers[code] = p;
+  };
+
+  const renderProviders = () => {
+    const providers = Object.keys(currentCfg.providers || {});
+    providers.sort();
+    providersTbody.innerHTML = "";
+
+    if (!providers.length) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td colspan="5" class="text-muted">No providers configured.</td>`;
+      providersTbody.appendChild(tr);
+      return;
+    }
+
+    providers.forEach((code) => {
+      const p = ensureProviderDefaults(currentCfg.providers[code]);
+      currentCfg.providers[code] = p;
+
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="fw-semibold">${esc(code)}</td>
+        <td>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="prov_${esc(code)}_avail" ${p.availability_enabled ? "checked" : ""}>
+            <label class="form-check-label" for="prov_${esc(code)}_avail">Enabled</label>
+          </div>
+          <div class="text-muted small">Controls search results.</div>
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-3">
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="prov_${esc(code)}_ticket" id="prov_${esc(code)}_full" value="full" ${String(p.ticketing_mode||"full")==="full" ? "checked" : ""}>
+              <label class="form-check-label" for="prov_${esc(code)}_full">Availability + Ticketing</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="prov_${esc(code)}_ticket" id="prov_${esc(code)}_availonly" value="availability_only" ${String(p.ticketing_mode||"full")!=="full" ? "checked" : ""}>
+              <label class="form-check-label" for="prov_${esc(code)}_availonly">Availability only (Pending)</label>
+            </div>
+          </div>
+          <div class="text-muted small">If ticketing is off, bookings go to Pending bookings.</div>
+          <div class="small mt-1" data-ticketing-now="${esc(code)}">Ticketing now: —</div>
+        </td>
+        <td>
+          <button class="btn btn-outline-secondary btn-sm" type="button" data-open-provider="${esc(code)}" title="Edit settings">Edit</button>
+        </td>
+        <td>
+          <button class="btn btn-outline-danger btn-sm" type="button" data-del-provider="${esc(code)}">Delete</button>
+        </td>
+      `;
+
+      const editBtn = tr.querySelector('[data-open-provider]');
+      if (editBtn) {
+        editBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          openProviderModal(code);
+        });
+      }
+
+      tr.querySelector('[data-del-provider]').addEventListener("click", () => {
+        const c = tr.querySelector('[data-del-provider]').getAttribute("data-del-provider");
+        if (!c) return;
+        delete currentCfg.providers[c];
+        renderProviders();
+      });
+
+      providersTbody.appendChild(tr);
+    });
+  };
+
+  const fetchCfg = async () => {
+    const r = await fetch("/permissions-data");
+    const t = await r.text();
+    let data = null;
+    try { data = JSON.parse(t); } catch { data = null; }
+    if (!r.ok || !data) throw new Error(t || ("HTTP " + r.status));
+    return normalizeCfg(data);
+  };
+
+  const fetchStatus = async () => {
+    try {
+      const r = await fetch("/permissions-status");
+      const t = await r.text();
+      let data = null;
+      try { data = JSON.parse(t); } catch { data = null; }
+      if (!r.ok || !data) return null;
+      return data;
+    } catch {
+      return null;
+    }
+  };
+
+  const updateTicketingNow = async () => {
+    const status = await fetchStatus();
+    const providers = (status && status.providers) ? status.providers : null;
+    Object.keys(currentCfg.providers || {}).forEach((code) => {
+      const el = document.querySelector(`[data-ticketing-now="${CSS.escape(code)}"]`);
+      if (!el) return;
+      if (!providers || !providers[code]) {
+        el.innerHTML = 'Ticketing now: <span class="badge text-bg-secondary">Unknown</span>';
+        return;
+      }
+      const p = providers[code] || {};
+      const on = (p.ticketing_effective === true);
+      const schedOk = (p.ticketing_schedule_ok === true);
+      const mode = (p.ticketing_mode || "availability_only");
+      const sched = p.schedule || {};
+
+      const fmtTime = (iso) => {
+        try {
+          const d = new Date(iso);
+          return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+        } catch {
+          return String(iso || "");
+        }
+      };
+      const fmtDateTime = (iso) => {
+        try {
+          const d = new Date(iso);
+          return d.toLocaleString("en-GB", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+        } catch {
+          return String(iso || "");
+        }
+      };
+
+      const nowLine = sched && sched.now_local
+        ? `Baghdad time: ${fmtDateTime(sched.now_local)}`
+        : "Baghdad time: —";
+      let windowLine = "Schedule: disabled";
+      if (sched && sched.enabled) {
+        if (sched.current_window) {
+          windowLine = `Current window: ${fmtTime(sched.current_window.start)} – ${fmtTime(sched.current_window.end)}`;
+        } else if (sched.next_window) {
+          windowLine = `Next window: ${fmtDateTime(sched.next_window.start)} – ${fmtTime(sched.next_window.end)}`;
+        } else {
+          windowLine = "Next window: —";
+        }
+      }
+
+      if (mode !== "full") {
+        el.innerHTML = 'Ticketing now: <span class="badge text-bg-secondary">OFF</span> <span class="text-muted">Mode: Availability only</span><div class="text-muted small">' + nowLine + '</div><div class="text-muted small">' + windowLine + '</div>';
+      } else if (!schedOk) {
+        el.innerHTML = 'Ticketing now: <span class="badge text-bg-warning">OFF</span> <span class="text-muted">Schedule blocked</span><div class="text-muted small">' + nowLine + '</div><div class="text-muted small">' + windowLine + '</div>';
+      } else if (on) {
+        el.innerHTML = 'Ticketing now: <span class="badge text-bg-success">ON</span><div class="text-muted small">' + nowLine + '</div><div class="text-muted small">' + windowLine + '</div>';
+      } else {
+        el.innerHTML = 'Ticketing now: <span class="badge text-bg-secondary">OFF</span><div class="text-muted small">' + nowLine + '</div><div class="text-muted small">' + windowLine + '</div>';
+      }
+    });
+  };
+
+  const collectProvidersFromTable = () => {
+    const providers = Object.keys(currentCfg.providers || {});
+    providers.forEach((code) => {
+      const p = ensureProviderDefaults(currentCfg.providers[code]);
+
+      const avail = document.getElementById(`prov_${code}_avail`);
+      if (avail) p.availability_enabled = !!avail.checked;
+
+      const full = document.getElementById(`prov_${code}_full`);
+      const mode = (full && full.checked) ? "full" : "availability_only";
+      p.ticketing_mode = mode;
+
+      currentCfg.providers[code] = p;
+    });
+  };
+
+  const saveCfg = async () => {
+    hideStatus();
+
+    // Pull current UI state into cfg
+    collectProvidersFromTable();
+    if (editingProviderId) {
+      // If modal fields were edited, keep them.
+      persistModalToProvider(editingProviderId);
+    }
+
+    const r = await fetch("/permissions-data", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(currentCfg)
+    });
+    const t = await r.text();
+    if (!r.ok) throw new Error(t || ("HTTP " + r.status));
+    showStatus("Saved.", "success");
+    updateTicketingNow();
+  };
+
+  document.getElementById("addRuleBtn").addEventListener("click", () => {
+    rulesWrap.appendChild(mkRuleRow({days:[0,1,2,3,4,5,6], start:"09:00", end:"18:00"}));
+  });
+
+  document.getElementById("addProviderBtn").addEventListener("click", () => {
+    const raw = (document.getElementById("newProviderCode").value || "").trim();
+    const code = raw.toUpperCase().replace(/\s+/g, "");
+    if (!code) return;
+
+    if (!currentCfg.providers[code]) currentCfg.providers[code] = ensureProviderDefaults({});
+    document.getElementById("newProviderCode").value = "";
+    renderProviders();
+    showStatus("Provider added (remember to Save).", "info");
+  });
+
+  const modalSaveBtn = document.getElementById("modalSaveBtn");
+  if (modalSaveBtn) {
+    modalSaveBtn.addEventListener("click", async () => {
+      try {
+        if (editingProviderId) persistModalToProvider(editingProviderId);
+        await saveCfg();
+
+        if (providerModal && providerModal.hide) {
+          providerModal.hide();
+        } else {
+          const modalEl = document.getElementById("providerModal");
+          if (modalEl) {
+            modalEl.classList.remove("show");
+            modalEl.style.display = "none";
+            modalEl.setAttribute("aria-hidden", "true");
+          }
+        }
+        showStatus("Provider settings saved.", "success");
+      } catch (e) {
+        showStatus(String(e), "danger");
+      }
+    });
+  }
+
+  document.getElementById("refreshBtn").addEventListener("click", async () => {
+    try {
+      currentCfg = await fetchCfg();
+      renderProviders();
+      updateTicketingNow();
+      showStatus("Loaded.", "info");
+    } catch (e) {
+      showStatus(String(e), "danger");
+    }
+  });
+
+  document.getElementById("saveBtn").addEventListener("click", async () => {
+    try {
+      await saveCfg();
+    } catch (e) {
+      showStatus(String(e), "danger");
+    }
+  });
+
+  window.addEventListener("DOMContentLoaded", async () => {
+    try {
+      currentCfg = await fetchCfg();
+      renderProviders();
+      updateTicketingNow();
+    } catch (e) {
+      showStatus(String(e), "danger");
+    }
+  });
+</script>
+{% endblock %}

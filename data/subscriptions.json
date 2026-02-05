@@ -1,0 +1,44 @@
+[
+  {
+    "id": "sub_603cce25d397",
+    "owner_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+    "addon": "passenger_database",
+    "addon_name": "Passenger Database",
+    "period": "monthly",
+    "price": 10000,
+    "currency": "IQD",
+    "status": "active",
+    "start_at": "2026-02-04T09:34:18.172317Z",
+    "end_at": "2026-03-06T09:34:18.172317Z",
+    "recurring": false,
+    "renewal_period": "",
+    "recurring_stopped_at": "",
+    "assigned_user_ids": [
+      "12e976e2f044452e825fef7bde4351d3"
+    ],
+    "purchased_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+    "created_at": "2026-02-04T09:34:18.172554Z",
+    "updated_at": "2026-02-04T11:58:13.779346Z"
+  },
+  {
+    "id": "sub_52f2acee055f",
+    "owner_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+    "addon": "esim",
+    "addon_name": "eSIM",
+    "period": "monthly",
+    "price": 15000,
+    "currency": "IQD",
+    "status": "active",
+    "start_at": "2026-02-05T10:18:37.129818Z",
+    "end_at": "2026-03-07T10:18:37.129818Z",
+    "recurring": true,
+    "renewal_period": "monthly",
+    "recurring_stopped_at": "",
+    "assigned_user_ids": [
+      "12e976e2f044452e825fef7bde4351d3"
+    ],
+    "purchased_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+    "created_at": "2026-02-05T10:18:37.129981Z",
+    "updated_at": "2026-02-05T10:18:55.632572Z"
+  }
+]

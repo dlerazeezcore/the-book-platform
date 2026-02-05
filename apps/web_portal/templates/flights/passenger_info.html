@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Passenger information</div>
+              <div class="text-muted small">Enter passenger details (mandatory fields: title, names, DOB, passport, contact).</div>
+            </div>
+          </div>
+
+          <div id="bookingSummary" class="mt-3 text-muted small"></div>
+
+          <hr class="my-3" />
+
+          <form
+            id="paxForm"
+            novalidate
+            data-default-phone="{{ (current_user.phone or '') if current_user else '' }}"
+            data-default-email="{{ (current_user.email or '') if current_user else '' }}"
+          >
+            <div class="vstack gap-3" id="passengerFields"></div>
+            <input
+              type="hidden"
+              id="contactPhone"
+              name="contact_phone"
+              value="{{ (current_user.phone or balances_user.phone or '') if current_user else (balances_user.phone if balances_user else '') }}"
+            />
+            <input
+              type="hidden"
+              id="contactEmail"
+              name="contact_email"
+              value="{{ (current_user.email or balances_user.email or '') if current_user else (balances_user.email if balances_user else '') }}"
+            />
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
+              <button type="button" class="btn btn-outline-secondary" id="backBtn">Back</button>
+              <button type="submit" class="btn btn-primary" id="issueBtn">Continue</button>
+            </div>
+
+            <div class="mt-3 d-none" id="issueStatus"></div>
+
+            <div class="mt-3 d-none" id="issueResult">
+              <div class="card">
+                <div class="card-body">
+                  <div class="fw-semibold mb-2">Booking response</div>
+                  <div id="resultTop" class="mb-2"></div>
+
+                  <div class="accordion" id="xmlAccordion">
+                    <div class="accordion-item">
+                      <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseReq" aria-expanded="false">
+                          Request XML
+                        </button>
+                      </h2>
+                      <div id="collapseReq" class="accordion-collapse collapse" data-bs-parent="#xmlAccordion">
+                        <div class="accordion-body">
+                          <pre class="mono small mb-0" id="reqXml" style="white-space: pre-wrap;"></pre>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="accordion-item">
+                      <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResp" aria-expanded="false">
+                          Response XML
+                        </button>
+                      </h2>
+                      <div id="collapseResp" class="accordion-collapse collapse" data-bs-parent="#xmlAccordion">
+                        <div class="accordion-body">
+                          <pre class="mono small mb-0" id="respXml" style="white-space: pre-wrap;"></pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", async () => {
+    const KEY = "booking_selection_v1";
+
+    const statusEl = document.getElementById("issueStatus");
+    const resultEl = document.getElementById("issueResult");
+    const resultTop = document.getElementById("resultTop");
+    const reqXmlEl = document.getElementById("reqXml");
+    const respXmlEl = document.getElementById("respXml");
+    const fieldsEl = document.getElementById("passengerFields");
+    const summaryEl = document.getElementById("bookingSummary");
+    const backBtn = document.getElementById("backBtn");
+    const form = document.getElementById("paxForm");
+    const issueBtn = document.getElementById("issueBtn");
+
+    const safeJson = (s) => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+
+    const showStatus = (html, kind="info") => {
+      if (!statusEl) return;
+      statusEl.classList.remove("d-none");
+      statusEl.className = "mt-3 alert alert-" + kind;
+      statusEl.innerHTML = html;
+    };
+
+    const hideStatus = () => {
+      if (!statusEl) return;
+      statusEl.classList.add("d-none");
+    };
+
+    const showResult = (data) => {
+      if (!resultEl) return;
+      resultEl.classList.remove("d-none");
+
+      const pnr = data && (data.pnr || data.connectota_id);
+      if (pnr) {
+        resultTop.innerHTML = "<div class='alert alert-success mb-0'>Ticket issued. Booking reference: <span class='fw-semibold'>" + String(pnr) + "</span></div>";
+      } else if (data && data.status === "success") {
+        resultTop.innerHTML = "<div class='alert alert-success mb-0'>Ticket issued.</div>";
+      } else {
+        const msg = (data && (data.error || data.upstream)) ? String(data.error || data.upstream) : "Booking failed.";
+        resultTop.innerHTML = "<div class='alert alert-danger mb-0'>" + msg + "</div>";
+      }
+
+      reqXmlEl.textContent = (data && data.request_xml) ? data.request_xml : "";
+      respXmlEl.textContent = (data && data.response_xml) ? data.response_xml : "";
+    };
+
+    const readSelectionFromUrl = () => {
+      // Optional fallback: allow previous step to pass selection via URL (?sel=... or ?selection=... or #sel=...)
+      try {
+        const sp = new URLSearchParams(window.location.search || "");
+        const raw = sp.get("selection") || sp.get("sel") || sp.get("data") || "";
+        if (raw) return safeJson(decodeURIComponent(raw));
+      } catch {}
+      try {
+        const h = (window.location.hash || "").replace(/^#/, "");
+        if (!h) return null;
+        const sp2 = new URLSearchParams(h);
+        const raw2 = sp2.get("selection") || sp2.get("sel") || sp2.get("data") || "";
+        if (raw2) return safeJson(decodeURIComponent(raw2));
+      } catch {}
+      return null;
+    };
+
+    let selection = safeJson(localStorage.getItem(KEY) || "");
+    if (!selection) {
+      const fromUrl = readSelectionFromUrl();
+      if (fromUrl) {
+        selection = fromUrl;
+        try { localStorage.setItem(KEY, JSON.stringify(selection)); } catch {}
+      }
+    }
+
+    if (!selection) {
+      showStatus("Missing selected flight data. Please go back and select a flight first.", "warning");
+      if (issueBtn) issueBtn.disabled = true;
+      return;
+    }
+
+    const pax = selection.pax || {};
+    const adults = parseInt(pax.adults || 0, 10) || 0;
+    const children = parseInt(pax.children || 0, 10) || 0;
+    const infants = parseInt(pax.infants || 0, 10) || 0;
+
+    const totalPax = adults + children + infants;
+    if (!totalPax) {
+      showStatus("No passengers selected. Please go back and select passengers.", "warning");
+      if (issueBtn) issueBtn.disabled = true;
+      return;
+    }
+
+    const addFieldRow = (label, typeCode, idx) => {
+      const idBase = "p" + idx;
+      const wrapper = document.createElement("div");
+      wrapper.className = "card";
+      wrapper.innerHTML = `
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <div class="fw-semibold">${label}</div>
+            <div class="d-flex flex-wrap gap-2">
+              <button type="button" class="btn btn-sm btn-outline-primary pax-db-btn" data-pax-index="${idx}">
+                Use Passenger DB
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary pax-clear-btn" data-pax-index="${idx}">
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12 col-md-2">
+              <label class="form-label">Title</label>
+              <select class="form-select" name="${idBase}_title" required>
+                <option value="" selected disabled>Choose</option>
+                <option value="MR">Mr.</option>
+                <option value="MS">Ms.</option>
+                <option value="MRS">Mrs.</option>
+              </select>
+              <div class="invalid-feedback">Title is required</div>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-control" name="${idBase}_first" required />
+              <div class="invalid-feedback">Name is required</div>
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">Last name</label>
+              <input type="text" class="form-control" name="${idBase}_last" required />
+              <div class="invalid-feedback">Last name is required</div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">DOB</label>
+              <input type="date" class="form-control" name="${idBase}_dob" required />
+              <div class="invalid-feedback">DOB is required</div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label">Passport number</label>
+              <input type="text" class="form-control" name="${idBase}_passport" required />
+              <div class="invalid-feedback">Passport number is required</div>
+            </div>
+
+            <div class="col-12 col-md-6">
+              <label class="form-label">Passport expiry</label>
+              <input type="date" class="form-control" name="${idBase}_passport_exp" required />
+              <div class="invalid-feedback">Passport expiry is required</div>
+            </div>
+          </div>
+
+          <input type="hidden" name="${idBase}_type" value="${typeCode}" />
+
+          <!-- Passenger DB selection (optional) -->
+          <input type="hidden" name="${idBase}_db_member_id" value="" />
+          <input type="hidden" name="${idBase}_db_profile_id" value="" />
+          <input type="hidden" name="${idBase}_db_passport_number" value="" />
+        </div>`;
+      fieldsEl.appendChild(wrapper);
+    };
+
+    // Summary (basic)
+    try {
+      const out = selection.selectedOutbound || null;
+      const rt = selection.selectedReturn || null;
+      const tt = selection.trip_type || "oneway";
+
+      const outSeg = out && out.segments && out.segments[0] ? out.segments[0] : null;
+      const outFlight = outSeg ? (outSeg.airline + (outSeg.flight ? outSeg.flight : "")) : "";
+      const outRoute = outSeg ? (outSeg.dep + " → " + outSeg.arr) : "";
+      const total = selection.total_price || "";
+
+      let html = "<div class='text-muted small'>Trip: <span class='fw-semibold'>" + String(tt).toUpperCase() + "</span></div>";
+      if (outRoute) html += "<div class='text-muted small'>Outbound: <span class='fw-semibold'>" + outRoute + "</span> " + (outFlight ? "(" + outFlight + ")" : "") + "</div>";
+      if (rt) {
+        const rSeg = rt && rt.segments && rt.segments[0] ? rt.segments[0] : null;
+        const rFlight = rSeg ? (rSeg.airline + (rSeg.flight ? rSeg.flight : "")) : "";
+        const rRoute = rSeg ? (rSeg.dep + " → " + rSeg.arr) : "";
+        if (rRoute) html += "<div class='text-muted small'>Return: <span class='fw-semibold'>" + rRoute + "</span> " + (rFlight ? "(" + rFlight + ")" : "") + "</div>";
+      }
+      html += "<div class='text-muted small'>Passengers: <span class='fw-semibold'>" + adults + " adult" + (adults === 1 ? "" : "s") + "</span>";
+      if (children) html += " + <span class='fw-semibold'>" + children + " child" + (children === 1 ? "" : "ren") + "</span>";
+      if (infants) html += " + <span class=\'fw-semibold\'>" + infants + " infant" + (infants === 1 ? "" : "s") + "</span>";
+      html += "</div>";
+      if (total) html += "<div class='text-muted small'>Total: <span class='fw-semibold'>" + total + "</span></div>";
+
+      summaryEl.innerHTML = html;
+    } catch {}
+
+    // Build passenger fields
+    let idx = 0;
+    for (let i = 0; i < adults; i++) addFieldRow("Adult " + (i + 1), "ADT", idx++);
+    for (let i = 0; i < children; i++) addFieldRow("Child " + (i + 1), "CHD", idx++);
+    for (let i = 0; i < infants; i++) addFieldRow("Infant " + (i + 1), "INF", idx++);
+
+    // ------------------------------
+    // Passenger DB selector (modal)
+    // ------------------------------
+    let hasPassengerDb = false;
+    try {
+      const r = await fetch("/api/features", { credentials: "same-origin" });
+      const j = await r.json();
+      hasPassengerDb = (j && j.status === "ok" && Array.isArray(j.active_addons) && j.active_addons.includes("passenger_database"));
+    } catch {
+      hasPassengerDb = false;
+    }
+
+    const ensureDbModal = () => {
+      if (document.getElementById("paxDbModal")) return;
+      const modal = document.createElement("div");
+      modal.className = "modal fade";
+      modal.id = "paxDbModal";
+      modal.tabIndex = -1;
+      modal.innerHTML = `
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <div>
+                <div class="fw-semibold">Passenger Database</div>
+                <div class="text-muted small">Search by passport, name, last name, phone, or profile label.</div>
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <div class="input-group mb-3">
+                <span class="input-group-text">Search</span>
+                <input type="text" class="form-control" id="paxDbSearch" placeholder="Passport / Name / Phone / Profile" />
+              </div>
+
+              <div class="small text-muted mb-2" id="paxDbHint"></div>
+              <div class="vstack gap-2" id="paxDbResults"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    };
+
+    const renderDbResults = (results, targetIndex) => {
+      const resultsEl = document.getElementById("paxDbResults");
+      const hintEl = document.getElementById("paxDbHint");
+      if (!resultsEl) return;
+
+      const safe = (s) => String(s || "").replace(/[&<>"]/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+      resultsEl.innerHTML = "";
+
+      if (!Array.isArray(results) || !results.length) {
+        hintEl.textContent = "No matches.";
+        return;
+      }
+      hintEl.textContent = "Select a passenger (and passport if multiple).";
+
+      for (const p of results) {
+        const profLabel = safe(p.label || "Profile");
+        const profPhone = safe(p.phone || "");
+        const profId = safe(p.id || "");
+
+        const card = document.createElement("div");
+        card.className = "card";
+        const mems = Array.isArray(p.members) ? p.members : [];
+
+        let memHtml = "";
+        for (const m of mems) {
+          const memId = safe(m.id || "");
+          const fn = safe(m.first_name || "");
+          const ln = safe(m.last_name || "");
+          const dob = safe(m.dob || "");
+          const cat = safe(m.age_category || "");
+          const passports = Array.isArray(m.passports) ? m.passports : [];
+          const primary = safe(m.primary_passport_number || "");
+
+          let passportOpts = "";
+          if (passports.length) {
+            for (const d of passports) {
+              const num = safe(d.number || "");
+              const exp = safe(d.expiry_date || "");
+              passportOpts += `<option value="${num}" data-exp="${safe(exp)}">${num}${exp ? " (exp " + exp + ")" : ""}</option>`;
+            }
+          } else {
+            passportOpts = `<option value="" data-exp="">(no passport saved)</option>`;
+          }
+
+          memHtml += `
+            <div class="border rounded p-2">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>
+                  <div class="fw-semibold">${fn} ${ln}</div>
+                  <div class="text-muted small">${dob ? ("DOB: " + dob + " · ") : ""}${cat ? ("Type: " + cat) : ""}</div>
+                </div>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <select class="form-select form-select-sm pax-passport-select" data-mem-id="${memId}">
+                    ${passportOpts}
+                  </select>
+                  <button type="button" class="btn btn-sm btn-primary pax-select-btn"
+                    data-target-index="${targetIndex}"
+                    data-profile-id="${profId}"
+                    data-member-id="${memId}"
+                    data-first-name="${fn}"
+                    data-last-name="${ln}"
+                    data-dob="${dob}"
+                    data-title="${safe(m.title || "")}">
+                    Select
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        card.innerHTML = `
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div>
+                <div class="fw-semibold">${profLabel}</div>
+                <div class="text-muted small">${profPhone ? ("Phone: " + profPhone) : ""}</div>
+              </div>
+            </div>
+            <div class="vstack gap-2 mt-3">
+              ${memHtml || "<div class='text-muted small'>No passengers in this profile.</div>"}
+            </div>
+          </div>
+        `;
+        resultsEl.appendChild(card);
+      }
+    };
+
+    const fetchDb = async (q, targetIndex) => {
+      const r = await fetch("/passenger-database/api/search?q=" + encodeURIComponent(q || ""), { credentials: "same-origin" });
+      const j = await r.json();
+      if (!j || j.status !== "ok") throw new Error((j && j.error) ? j.error : "Passenger DB error");
+      renderDbResults(j.results || [], targetIndex);
+    };
+
+    const wireDbButtons = async () => {
+      const dbBtns = Array.from(document.querySelectorAll(".pax-db-btn"));
+      const clearBtns = Array.from(document.querySelectorAll(".pax-clear-btn"));
+
+      if (!hasPassengerDb) {
+        for (const b of dbBtns) b.style.display = "none";
+        return;
+      }
+
+      ensureDbModal();
+
+      let activeIndex = null;
+      let modalInstance = null;
+
+      const openModalFor = async (idx) => {
+        activeIndex = idx;
+        const el = document.getElementById("paxDbModal");
+        if (!el) return;
+        modalInstance = bootstrap.Modal.getOrCreateInstance(el);
+        modalInstance.show();
+
+        const searchEl = document.getElementById("paxDbSearch");
+        const resultsEl = document.getElementById("paxDbResults");
+        const hintEl = document.getElementById("paxDbHint");
+        if (searchEl) searchEl.value = "";
+        if (resultsEl) resultsEl.innerHTML = "";
+        if (hintEl) hintEl.textContent = "Type to search.";
+
+        // initial load: show all accessible profiles (empty query)
+        try { await fetchDb("", idx); } catch {}
+      };
+
+      for (const b of dbBtns) {
+        b.addEventListener("click", async (e) => {
+          const idx = parseInt(String(b.getAttribute("data-pax-index") || "0"), 10) || 0;
+          await openModalFor(idx);
+        });
+      }
+
+      for (const b of clearBtns) {
+        b.addEventListener("click", () => {
+          const idx = parseInt(String(b.getAttribute("data-pax-index") || "0"), 10) || 0;
+          const base = "p" + idx;
+          const setVal = (name, val) => {
+            const el = form.querySelector(`[name="${name}"]`);
+            if (el) el.value = val;
+          };
+          setVal(base + "_title", "");
+          setVal(base + "_first", "");
+          setVal(base + "_last", "");
+          setVal(base + "_dob", "");
+          setVal(base + "_passport", "");
+          setVal(base + "_passport_exp", "");
+          setVal(base + "_db_member_id", "");
+          setVal(base + "_db_profile_id", "");
+          setVal(base + "_db_passport_number", "");
+        });
+      }
+
+      // Search debounce
+      let tmr = null;
+      document.addEventListener("input", (ev) => {
+        const target = ev.target;
+        if (!target || target.id !== "paxDbSearch") return;
+        if (tmr) clearTimeout(tmr);
+        tmr = setTimeout(async () => {
+          const q = String(target.value || "");
+          try { await fetchDb(q, activeIndex ?? 0); } catch (e) {
+            const hintEl = document.getElementById("paxDbHint");
+            if (hintEl) hintEl.textContent = String(e);
+          }
+        }, 250);
+      });
+
+      // Handle select clicks (event delegation)
+      document.addEventListener("click", (ev) => {
+        const btn = ev.target && ev.target.closest ? ev.target.closest(".pax-select-btn") : null;
+        if (!btn) return;
+
+        const targetIndex = parseInt(String(btn.getAttribute("data-target-index") || "0"), 10) || 0;
+        const profileId = String(btn.getAttribute("data-profile-id") || "");
+        const memberId = String(btn.getAttribute("data-member-id") || "");
+
+        // Find the passport dropdown inside the same passenger block
+        const block = btn.closest(".border");
+        const sel = block ? block.querySelector(".pax-passport-select") : null;
+        const passportNumber = sel ? String(sel.value || "") : "";
+        let passportExp = "";
+        if (sel && sel.selectedOptions && sel.selectedOptions[0]) {
+          passportExp = String(sel.selectedOptions[0].getAttribute("data-exp") || "");
+        }
+
+        const first = String(btn.getAttribute("data-first-name") || "").trim();
+        const last = String(btn.getAttribute("data-last-name") || "").trim();
+        const dob = String(btn.getAttribute("data-dob") || "").trim();
+        const titleRaw = String(btn.getAttribute("data-title") || "").trim().toUpperCase();
+        const title = titleRaw ? titleRaw.replace(/[^A-Z]/g, "") : "";
+
+        const base = "p" + targetIndex;
+        const setVal = (name, val) => {
+          const el = form.querySelector(`[name="${name}"]`);
+          if (el) el.value = val;
+        };
+
+        if (title) setVal(base + "_title", title);
+        setVal(base + "_first", first);
+        setVal(base + "_last", last);
+        if (dob) setVal(base + "_dob", dob);
+
+        if (passportNumber) setVal(base + "_passport", passportNumber);
+        if (passportExp) setVal(base + "_passport_exp", passportExp);
+
+        setVal(base + "_db_member_id", memberId);
+        setVal(base + "_db_profile_id", profileId);
+        setVal(base + "_db_passport_number", passportNumber);
+
+        // Close modal
+        try {
+          const el = document.getElementById("paxDbModal");
+          const inst = bootstrap.Modal.getInstance(el);
+          if (inst) inst.hide();
+        } catch {}
+      });
+    };
+
+    // Wire Passenger DB buttons now that the passenger cards are rendered.
+    await wireDbButtons();
+
+    // Back button returns to previous window
+    if (backBtn) {
+      backBtn.addEventListener("click", () => {
+        // Passenger Info opens in a new window/tab. Go back to the results window.
+        if (window.opener && !window.opener.closed) {
+          try { window.opener.focus(); } catch {}
+          window.close();
+          return;
+        }
+        if (window.history && window.history.length > 1) {
+          window.history.back();
+          return;
+        }
+        window.location.href = "/";
+      });
+    }
+
+    // Bootstrap validation styling
+    const markValidity = () => {
+      const inputs = Array.from(form.querySelectorAll("input[required]"));
+      for (const el of inputs) {
+        if (el.checkValidity()) el.classList.remove("is-invalid");
+        else el.classList.add("is-invalid");
+      }
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideStatus();
+
+      if (!form.checkValidity()) {
+        markValidity();
+        showStatus("Please fill all required passenger fields.", "warning");
+        return;
+      }
+
+      const fd = new FormData(form);
+            const passengers = [];
+      for (let i = 0; i < totalPax; i++) {
+        const title = String(fd.get("p" + i + "_title") || "").trim().toUpperCase();
+        const first = String(fd.get("p" + i + "_first") || "").trim();
+        const last  = String(fd.get("p" + i + "_last") || "").trim();
+        const dob   = String(fd.get("p" + i + "_dob") || "").trim();
+        const type  = String(fd.get("p" + i + "_type") || "ADT").trim();
+
+        const passport = String(fd.get("p" + i + "_passport") || "").trim();
+        const passportExp = String(fd.get("p" + i + "_passport_exp") || "").trim();
+        const dbMemberId = String(fd.get("p" + i + "_db_member_id") || "").trim();
+        const dbProfileId = String(fd.get("p" + i + "_db_profile_id") || "").trim();
+        const dbPassportNumber = String(fd.get("p" + i + "_db_passport_number") || "").trim();
+
+
+        // Basic mapping: MR->M, MS->F
+        const gender = (title === "MS" || title === "MRS") ? "F" : "M";
+
+        passengers.push({
+          name_prefix: title || "MR",
+          first_name: first,
+          last_name: last,
+          birth_date: dob,
+          pax_type: type,
+          gender: gender,
+          passport: passport,
+          expire_date: passportExp,
+          // Passenger DB linkage (optional)
+          passenger_db_member_id: dbMemberId,
+          passenger_db_profile_id: dbProfileId,
+          passenger_db_passport_number: dbPassportNumber,
+          // defaults (keeps backend happy and matches your sample)
+          issue_country: "IQ",
+          nationality: "IQ",
+          doc_type: "2"
+        });
+      }
+
+      const out = selection.selectedOutbound || null;
+      const rt = selection.selectedReturn || null;
+
+      // Backwards compatible:
+      // - older flow stored a provider-specific `itinerary_json` (string)
+      // - current flow stores the full itinerary object (from search results)
+      const outboundItin = out
+        ? (out.itinerary_json ? out.itinerary_json : JSON.stringify(out))
+        : null;
+      const returnItin = rt
+        ? (rt.itinerary_json ? rt.itinerary_json : JSON.stringify(rt))
+        : null;
+
+      if (!outboundItin) {
+        showStatus("Missing itinerary details. Please go back and select a flight again.", "warning");
+        return;
+      }
+
+      let contactPhone = String(fd.get("contact_phone") || "").trim();
+      let contactEmail = String(fd.get("contact_email") || "").trim();
+      if (!contactPhone && form) {
+        contactPhone = String(form.getAttribute("data-default-phone") || "").trim();
+      }
+      if (!contactEmail && form) {
+        contactEmail = String(form.getAttribute("data-default-email") || "").trim();
+      }
+
+      const payload = {
+        trip_type: selection.trip_type || "oneway",
+        outbound_itinerary_json: outboundItin,
+        return_itinerary_json: returnItin,
+        passengers: passengers,
+        contact: {
+          phone: contactPhone,
+          email: contactEmail,
+          country: "IQ",
+          city: "Erbil"
+        }
+      };
+
+      try {
+        issueBtn.disabled = true;
+        showStatus("Continuing to payment…", "info");
+
+                // Save payload for Payment step and go to Payment page
+        try {
+          localStorage.setItem("issue_payload_v1", JSON.stringify(payload));
+        } catch {}
+
+        // Use a relative URL so the app works correctly when mounted under a path prefix.
+        window.location.href = "payment";
+      } catch (err) {
+        showStatus(String(err), "danger");
+      } finally {
+        issueBtn.disabled = false;
+      }
+    });
+  });
+</script>
+{% endblock %}

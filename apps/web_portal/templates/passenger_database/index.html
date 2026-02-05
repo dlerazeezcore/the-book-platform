@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <div class="h5 mb-1">Passenger Database</div>
+          <div class="text-muted small">Profiles can contain multiple passengers (family: father, mother, children, infant). Search by passport, name, or phone.</div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-primary" id="btnNewProfile">New Profile</button>
+          <div class="input-group input-group-sm" style="max-width: 340px;">
+            <span class="input-group-text">Search</span>
+            <input class="form-control" id="pdbSearch" placeholder="Passport / name / phone"/>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-3"/>
+
+      {% if not has_passenger_db %}
+        <div class="alert alert-warning mb-0">
+          Passenger Database is an add-on. Please purchase it from <a href="{{ request.url_for('subscriptions') }}">Subscriptions</a>.
+        </div>
+      {% else %}
+        <div class="row g-3">
+          <div class="col-12 col-lg-5">
+            <div class="fw-semibold mb-2">Profiles</div>
+            <div id="profilesList" class="text-muted">Loading…</div>
+          </div>
+
+          <div class="col-12 col-lg-7">
+            <div class="fw-semibold mb-2">Details</div>
+            <div id="profileDetails" class="alert alert-light border mb-0">Select a profile to view members.</div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal: New Profile -->
+<div class="modal fade" id="modalProfile" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="fw-semibold">Profile</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="profileForm" class="row g-2">
+          <input type="hidden" name="id"/>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted mb-1">Profile label (optional)</label>
+            <input class="form-control" name="label" placeholder="e.g. Al-Sayed Family"/>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label small text-muted mb-1">Phone (one main number)</label>
+            <input class="form-control" name="phone" placeholder="+964..."/>
+          </div>
+        </form>
+
+        <hr class="my-3"/>
+
+        <div class="fw-semibold mb-2">Members</div>
+        <div class="text-muted small mb-2">Mandatory: first name, last name, DOB, nationality, national ID number, at least one passport with issue/expiry.</div>
+
+        <div id="membersEditor" class="text-muted">Save the profile first, then add members.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" id="btnSaveProfile">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Member -->
+<div class="modal fade" id="modalMember" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="fw-semibold">Passenger</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="memberForm" class="row g-2">
+          <input type="hidden" name="profile_id"/>
+          <input type="hidden" name="member_id"/>
+
+          <div class="col-12 col-md-2">
+            <label class="form-label small text-muted mb-1">Title *</label>
+            <select class="form-select" name="title" required>
+              <option value="" selected disabled>Choose</option>
+              <option value="MR">Mr.</option>
+              <option value="MS">Ms.</option>
+              <option value="MRS">Mrs.</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small text-muted mb-1">First name *</label>
+            <input class="form-control" name="first_name" required/>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small text-muted mb-1">Last name *</label>
+            <input class="form-control" name="last_name" required/>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted mb-1">DOB (YYYY-MM-DD) *</label>
+            <input class="form-control" name="dob" placeholder="1990-01-30" required/>
+          </div>
+
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted mb-1">Nationality *</label>
+            <input class="form-control" name="nationality" required/>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted mb-1">National ID number *</label>
+            <input class="form-control" name="national_id_number" required/>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small text-muted mb-1">Member phone (optional)</label>
+            <input class="form-control" name="phone"/>
+          </div>
+
+          <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">Passports *</div>
+              <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddPassport">Add passport</button>
+            </div>
+            <div class="text-muted small">Supports multiple passports (dual nationality, renewals). Search works across all passport numbers.</div>
+            <div id="passportsWrap" class="mt-2"></div>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label small text-muted mb-1">Notes</label>
+            <textarea class="form-control" name="notes" rows="2"></textarea>
+          </div>
+        </form>
+
+        <hr class="my-3"/>
+
+        <div class="fw-semibold mb-2">History</div>
+        <div class="d-flex flex-wrap gap-2 mb-2" id="memberHistoryFilters">
+          <button class="btn btn-sm btn-outline-secondary active" type="button" data-kind="all">All</button>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-kind="flight">Flights</button>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-kind="esim">eSIM</button>
+          <button class="btn btn-sm btn-outline-secondary" type="button" data-kind="hotel">Hotel</button>
+        </div>
+        <div id="memberHistoryList" class="text-muted">History will appear here after bookings.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-danger" id="btnDeleteMember">Delete</button>
+        <button class="btn btn-primary" id="btnSaveMember">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const hasAccess = {{ 'true' if has_passenger_db else 'false' }};
+    if (!hasAccess) return;
+
+    const profilesList = document.getElementById("profilesList");
+    const detailsEl = document.getElementById("profileDetails");
+    const searchEl = document.getElementById("pdbSearch");
+    const btnNewProfile = document.getElementById("btnNewProfile");
+
+    const modalProfileEl = document.getElementById("modalProfile");
+    const modalMemberEl = document.getElementById("modalMember");
+    const modalProfile = modalProfileEl ? new bootstrap.Modal(modalProfileEl) : null;
+    const modalMember = modalMemberEl ? new bootstrap.Modal(modalMemberEl) : null;
+
+    const profileForm = document.getElementById("profileForm");
+    const memberForm = document.getElementById("memberForm");
+    const membersEditor = document.getElementById("membersEditor");
+    const passportsWrap = document.getElementById("passportsWrap");
+    const historyFilters = document.getElementById("memberHistoryFilters");
+    const historyListEl = document.getElementById("memberHistoryList");
+
+    const btnSaveProfile = document.getElementById("btnSaveProfile");
+    const btnSaveMember = document.getElementById("btnSaveMember");
+    const btnDeleteMember = document.getElementById("btnDeleteMember");
+    const btnAddPassport = document.getElementById("btnAddPassport");
+
+    let currentProfiles = [];
+    let selectedProfile = null;
+    let currentHistory = [];
+    let currentHistoryFilter = "all";
+
+    const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    const setHistoryFilter = (kind) => {
+      currentHistoryFilter = kind || "all";
+      if (historyFilters) {
+        historyFilters.querySelectorAll("button[data-kind]").forEach((btn) => {
+          btn.classList.toggle("active", btn.getAttribute("data-kind") === currentHistoryFilter);
+        });
+      }
+      renderHistoryList();
+    };
+
+    const renderHistoryList = () => {
+      if (!historyListEl) return;
+      if (!Array.isArray(currentHistory) || currentHistory.length === 0) {
+        historyListEl.innerHTML = '<div class="text-muted">No history yet.</div>';
+        return;
+      }
+      const filtered = currentHistoryFilter === "all"
+        ? currentHistory
+        : currentHistory.filter((ev) => String(ev.kind || "") === currentHistoryFilter);
+      if (!filtered.length) {
+        historyListEl.innerHTML = '<div class="text-muted">No items for this filter.</div>';
+        return;
+      }
+      let h = '<div class="list-group rounded-3 overflow-hidden">';
+      for (const ev of filtered) {
+        const k = ev.kind || "";
+        const d = ev.details || {};
+        const title = (k === "flight") ? "Flight ticket"
+          : (k === "hotel" ? "Hotel"
+          : (k === "visa" ? "Visa"
+          : (k === "esim" ? "eSIM" : k)));
+        h += `
+          <div class="list-group-item">
+            <div class="fw-semibold">${esc(title)}</div>
+            <div class="text-muted small">${esc(ev.created_at || "")}</div>
+            ${k === "flight" ? `<div class="text-muted small">${esc(d.from || "")} → ${esc(d.to || "")} ${esc(d.airline || "")}</div>` : ""}
+            ${k === "hotel" ? `<div class="text-muted small">${esc(d.hotel_name || d.hotel || "")} ${esc(d.city || "")}</div>` : ""}
+            ${k === "visa" ? `<div class="text-muted small">Country: ${esc(d.country || d.destination_country || "")} • Status: ${esc(d.status || d.visa_status || "")}</div>` : ""}
+            ${k === "esim" ? `<div class="text-muted small">Plan: ${esc(d.bundle_description || d.bundle_name || "")} • Country: ${esc(d.country_name || d.country_iso || "")}</div>
+            <div class="text-muted small">Order: ${esc(d.order_reference || "")} • Status: ${esc(d.status || "")}</div>` : ""}
+          </div>
+        `;
+      }
+      h += "</div>";
+      historyListEl.innerHTML = h;
+    };
+
+    if (historyFilters) {
+      historyFilters.addEventListener("click", (ev) => {
+        const btn = ev.target && ev.target.closest ? ev.target.closest("button[data-kind]") : null;
+        if (!btn) return;
+        setHistoryFilter(btn.getAttribute("data-kind") || "all");
+      });
+    }
+
+    const passportRow = (p = {}) => {
+      return `
+        <div class="card search-card mb-2">
+          <div class="card-body p-2">
+            <div class="row g-2 align-items-end">
+              <div class="col-12 col-md-4">
+                <label class="form-label small text-muted mb-1">Passport number *</label>
+                <input class="form-control form-control-sm" data-passport-field="number" value="${esc(p.number)}" required/>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Issue date</label>
+                <input class="form-control form-control-sm" data-passport-field="issue_date" placeholder="YYYY-MM-DD" value="${esc(p.issue_date)}"/>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted mb-1">Expiry date *</label>
+                <input class="form-control form-control-sm" data-passport-field="expiry_date" placeholder="YYYY-MM-DD" value="${esc(p.expiry_date)}" required/>
+              </div>
+              <div class="col-12 col-md-2 d-grid">
+                <button class="btn btn-sm btn-outline-danger" type="button" data-passport-remove>Remove</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const collectPassports = () => {
+      const rows = Array.from(passportsWrap.querySelectorAll("[data-passport-row]"));
+      const out = [];
+      for (const r of rows) {
+        const get = (k) => (r.querySelector(`[data-passport-field="${k}"]`)?.value || "").trim();
+        const number = get("number");
+        if (!number) continue;
+        out.push({
+          number,
+          issue_date: get("issue_date"),
+          expiry_date: get("expiry_date"),
+          issue_place: ""
+        });
+      }
+      return out;
+    };
+
+    const loadProfiles = async (q = "") => {
+      if (profilesList) profilesList.innerText = "Loading…";
+      const url = "/passenger-database/api/search" + (q ? ("?q=" + encodeURIComponent(q)) : "");
+      const r = await fetch(url);
+      const data = await r.json();
+      if (data.status !== "ok") {
+        if (profilesList) profilesList.innerText = data.error || "Failed.";
+        return;
+      }
+      currentProfiles = data.results || [];
+      renderProfiles();
+      if (selectedProfile) {
+        const refreshed = currentProfiles.find(p => p.id === selectedProfile.id);
+        if (refreshed) selectProfile(refreshed.id);
+      }
+    };
+
+    const renderProfiles = () => {
+      if (!profilesList) return;
+      if (!currentProfiles.length) {
+        profilesList.innerHTML = '<div class="text-muted">No profiles yet.</div>';
+        return;
+      }
+      let html = '<div class="list-group rounded-3 overflow-hidden">';
+      for (const p of currentProfiles) {
+        const label = p.label || "(No label)";
+        const phone = p.phone || "";
+        html += `
+          <button type="button" class="list-group-item list-group-item-action" data-prof-id="${esc(p.id)}">
+            <div class="fw-semibold">${esc(label)}</div>
+            <div class="text-muted small">${esc(phone)}</div>
+            <div class="text-muted small">${(p.members || []).length} member(s)</div>
+          </button>
+        `;
+      }
+      html += "</div>";
+      profilesList.innerHTML = html;
+      profilesList.querySelectorAll("[data-prof-id]").forEach(btn => {
+        btn.addEventListener("click", () => selectProfile(btn.getAttribute("data-prof-id")));
+      });
+    };
+
+    const selectProfile = (id) => {
+      const p = currentProfiles.find(x => x.id === id);
+      selectedProfile = p || null;
+      if (!p || !detailsEl) return;
+
+      let html = `
+        <div class="d-flex align-items-start justify-content-between gap-2">
+          <div>
+            <div class="fw-semibold">${esc(p.label || "(No label)")}</div>
+            <div class="text-muted small">Phone: ${esc(p.phone || "")}</div>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary" id="btnEditProfile">Edit</button>
+            <button class="btn btn-sm btn-outline-danger" id="btnDeleteProfile">Delete</button>
+            <button class="btn btn-sm btn-primary" id="btnAddMember">Add passenger</button>
+          </div>
+        </div>
+        <hr class="my-3"/>
+      `;
+
+      const members = p.members || [];
+      if (!members.length) {
+        html += '<div class="text-muted">No passengers in this profile yet.</div>';
+      } else {
+        html += '<div class="list-group rounded-3 overflow-hidden">';
+        for (const m of members) {
+          const pass = m.primary_passport_number || "";
+          const cat = m.age_category || "unknown";
+          html += `
+            <button type="button" class="list-group-item list-group-item-action" data-mem-id="${esc(m.id)}">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <div>
+                  <div class="fw-semibold">${esc(m.first_name)} ${esc(m.last_name)}</div>
+                  <div class="text-muted small">DOB: ${esc(m.dob)} • ${esc(cat)}</div>
+                  <div class="text-muted small">Passport: ${esc(pass)}</div>
+                </div>
+                <span class="badge text-bg-secondary">${esc(cat)}</span>
+              </div>
+            </button>
+          `;
+        }
+        html += "</div>";
+      }
+
+      detailsEl.innerHTML = html;
+
+      const btnAdd = document.getElementById("btnAddMember");
+      const btnEdit = document.getElementById("btnEditProfile");
+      const btnDel = document.getElementById("btnDeleteProfile");
+
+      if (btnAdd) btnAdd.addEventListener("click", () => openMemberModal(p.id, null));
+      if (btnEdit) btnEdit.addEventListener("click", () => openProfileModal(p));
+      if (btnDel) btnDel.addEventListener("click", () => deleteProfile(p.id));
+
+      detailsEl.querySelectorAll("[data-mem-id]").forEach(btn => {
+        btn.addEventListener("click", () => openMemberModal(p.id, btn.getAttribute("data-mem-id")));
+      });
+    };
+
+    const openProfileModal = (p = null) => {
+      if (!profileForm || !modalProfile) return;
+      profileForm.id.value = p ? (p.id || "") : "";
+      profileForm.label.value = p ? (p.label || "") : "";
+      profileForm.phone.value = p ? (p.phone || "") : "";
+      if (membersEditor) {
+        membersEditor.innerHTML = p
+          ? '<div class="text-muted">Saved profile. Use "Add passenger" from the Details panel.</div>'
+          : '<div class="text-muted">Save the profile first, then add members.</div>';
+      }
+      modalProfile.show();
+    };
+
+    const saveProfile = async () => {
+      if (!profileForm) return;
+      const id = (profileForm.id.value || "").trim();
+      const body = {
+        label: (profileForm.label.value || "").trim(),
+        phone: (profileForm.phone.value || "").trim()
+      };
+
+      if (!id) {
+        const r = await fetch("/passenger-database/api/profile", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+        modalProfile.hide();
+        await loadProfiles(searchEl ? searchEl.value : "");
+        selectProfile(data.profile.id);
+      } else {
+        const r = await fetch("/passenger-database/api/profile/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(body)
+        });
+        const data = await r.json();
+        if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+        modalProfile.hide();
+        await loadProfiles(searchEl ? searchEl.value : "");
+        selectProfile(id);
+      }
+    };
+
+    const deleteProfile = async (id) => {
+      if (!confirm("Delete this profile?")) return;
+      const r = await fetch("/passenger-database/api/profile/" + encodeURIComponent(id), {method: "DELETE"});
+      const data = await r.json();
+      if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+      selectedProfile = null;
+      if (detailsEl) detailsEl.innerHTML = '<div class="alert alert-light border mb-0">Select a profile to view members.</div>';
+      await loadProfiles(searchEl ? searchEl.value : "");
+    };
+
+    const openMemberModal = async (profileId, memberId) => {
+      if (!memberForm || !modalMember) return;
+      memberForm.profile_id.value = profileId;
+      memberForm.member_id.value = memberId || "";
+
+      passportsWrap.innerHTML = "";
+      currentHistory = [];
+      setHistoryFilter("all");
+
+      const prof = currentProfiles.find(p => p.id === profileId);
+      const mem = prof && memberId ? (prof.members || []).find(m => m.id === memberId) : null;
+
+      if (memberForm.elements["title"]) {
+        memberForm.elements["title"].value = mem ? (mem.title || "") : "";
+      }
+      memberForm.first_name.value = mem ? (mem.first_name || "") : "";
+      memberForm.last_name.value = mem ? (mem.last_name || "") : "";
+      memberForm.dob.value = mem ? (mem.dob || "") : "";
+      memberForm.nationality.value = mem ? (mem.nationality || "") : "";
+      memberForm.national_id_number.value = mem ? (mem.national_id_number || "") : "";
+      memberForm.phone.value = mem ? (mem.phone || "") : "";
+      memberForm.notes.value = mem ? (mem.notes || "") : "";
+
+      const docs = mem ? (mem.passports || []) : [];
+      if (docs.length) {
+        passportsWrap.innerHTML = docs.map(d => `<div data-passport-row>${passportRow(d)}</div>`).join("");
+      } else {
+        passportsWrap.innerHTML = `<div data-passport-row>${passportRow({})}</div>`;
+      }
+
+      passportsWrap.querySelectorAll("[data-passport-remove]").forEach(btn => {
+        btn.addEventListener("click", () => btn.closest("[data-passport-row]").remove());
+      });
+
+      if (btnDeleteMember) btnDeleteMember.style.display = mem ? "" : "none";
+
+      // Load history (if editing existing member)
+      if (mem && mem.id) {
+        try {
+          const r = await fetch("/passenger-database/api/member/" + encodeURIComponent(mem.id) + "/history");
+          const data = await r.json();
+          if (data.status === "ok") {
+            currentHistory = data.history || [];
+            setHistoryFilter("all");
+          }
+        } catch {}
+      }
+
+      modalMember.show();
+    };
+
+    const saveMember = async () => {
+      if (!memberForm) return;
+
+      const profile_id = (memberForm.profile_id.value || "").trim();
+      const member_id = (memberForm.member_id.value || "").trim();
+
+      const payload = {
+        title: ((memberForm.elements["title"] && memberForm.elements["title"].value) || "").trim(),
+        first_name: (memberForm.first_name.value || "").trim(),
+        last_name: (memberForm.last_name.value || "").trim(),
+        dob: (memberForm.dob.value || "").trim(),
+        nationality: (memberForm.nationality.value || "").trim(),
+        national_id_number: (memberForm.national_id_number.value || "").trim(),
+        phone: (memberForm.phone.value || "").trim(),
+        passports: collectPassports(),
+        notes: (memberForm.notes.value || "").trim()
+      };
+
+      if (!payload.title || !payload.first_name || !payload.last_name || !payload.dob || !payload.nationality || !payload.national_id_number) {
+        alert("Please fill mandatory fields.");
+        return;
+      }
+      if (!payload.passports.length) {
+        alert("Please add at least one passport.");
+        return;
+      }
+
+      if (!member_id) {
+        const r = await fetch(`/passenger-database/api/profile/${encodeURIComponent(profile_id)}/member`, {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+        modalMember.hide();
+        await loadProfiles(searchEl ? searchEl.value : "");
+        selectProfile(profile_id);
+      } else {
+        const r = await fetch(`/passenger-database/api/profile/${encodeURIComponent(profile_id)}/member/${encodeURIComponent(member_id)}`, {
+          method: "PUT",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await r.json();
+        if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+        modalMember.hide();
+        await loadProfiles(searchEl ? searchEl.value : "");
+        selectProfile(profile_id);
+      }
+    };
+
+    const deleteMember = async () => {
+      if (!memberForm) return;
+      const profile_id = (memberForm.profile_id.value || "").trim();
+      const member_id = (memberForm.member_id.value || "").trim();
+      if (!member_id) return;
+      if (!confirm("Delete this passenger?")) return;
+
+      const r = await fetch(`/passenger-database/api/profile/${encodeURIComponent(profile_id)}/member/${encodeURIComponent(member_id)}`, {method: "DELETE"});
+      const data = await r.json();
+      if (data.status !== "ok") { alert(data.error || "Failed."); return; }
+      modalMember.hide();
+      await loadProfiles(searchEl ? searchEl.value : "");
+      selectProfile(profile_id);
+    };
+
+    // Wiring
+    if (btnNewProfile) btnNewProfile.addEventListener("click", () => openProfileModal(null));
+    if (btnSaveProfile) btnSaveProfile.addEventListener("click", saveProfile);
+    if (btnSaveMember) btnSaveMember.addEventListener("click", saveMember);
+    if (btnDeleteMember) btnDeleteMember.addEventListener("click", deleteMember);
+    if (btnAddPassport) btnAddPassport.addEventListener("click", () => {
+      const row = document.createElement("div");
+      row.setAttribute("data-passport-row", "");
+      row.innerHTML = passportRow({});
+      passportsWrap.appendChild(row);
+      row.querySelector("[data-passport-remove]").addEventListener("click", () => row.remove());
+    });
+
+    if (searchEl) {
+      let t = null;
+      searchEl.addEventListener("input", () => {
+        clearTimeout(t);
+        t = setTimeout(() => loadProfiles(searchEl.value), 250);
+      });
+    }
+
+    loadProfiles();
+  });
+</script>
+{% endblock %}

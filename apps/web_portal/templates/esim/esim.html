@@ -1,0 +1,1894 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if not current_user %}
+  <div class="container app-shell py-4">
+    <div class="alert alert-warning mb-0">Please log in to access eSIM.</div>
+  </div>
+{% elif not has_esim %}
+  <div class="container app-shell py-4">
+    <div class="alert alert-warning mb-0">
+      eSIM is an add-on. Please purchase it from
+      <a href="{{ request.url_for('subscriptions') }}">Subscriptions</a>.
+    </div>
+  </div>
+{% else %}
+<div class="esim-page">
+  <section class="esim-hero">
+    <div class="container app-shell">
+      <div class="esim-eyebrow">Partner Portal</div>
+      <h1>Find the right eSIM plan fast.</h1>
+      <p>Browse countries, regions, and global coverage to issue QR codes in minutes.</p>
+
+      <div class="esim-search">
+        <input class="form-control" id="esimSearchInput" placeholder="Type country, region, or global coverage">
+      </div>
+    </div>
+  </section>
+
+  <section class="esim-section" id="esimTopSection">
+    <div class="container app-shell">
+      <div class="esim-panel">
+        <div class="esim-section-head">
+          <h2>Top destinations</h2>
+          <button class="btn btn-link esim-link" id="esimShowAllBtn" type="button">Show all countries</button>
+        </div>
+        <div class="esim-grid" id="esimTopGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="esim-section d-none" id="esimAllSection">
+    <div class="container app-shell">
+      <div class="esim-panel">
+        <div class="esim-all-top">
+          <button class="esim-back-btn" id="esimBackTopBtn" type="button">
+            <span>‹</span>
+            Back to destinations
+          </button>
+        </div>
+        <div class="esim-section-head centered text-center">
+          <div class="esim-eyebrow">Destinations</div>
+          <h2>Countries</h2>
+          <p class="esim-subtitle">Single-country plans for focused coverage.</p>
+        </div>
+        <div class="esim-search esim-search-secondary">
+          <input class="form-control" id="esimAllSearchInput" placeholder="Type destination or region">
+        </div>
+        <div class="esim-grid" id="esimAllGrid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="esim-section d-none" id="esimPlansSection">
+    <div class="container app-shell">
+      <div class="esim-panel">
+        <div class="esim-section-head">
+          <div>
+            <h2 id="esimPlansTitle">Plans</h2>
+            <p class="esim-subtitle" id="esimPlansSubtitle">Select a country to see available plans.</p>
+          </div>
+        </div>
+        <div class="esim-plans" id="esimPlansGrid"></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Plans modal -->
+<div class="esim-plans-modal" id="esimPlansModal" aria-hidden="true">
+  <div class="esim-plans-dialog">
+    <div class="esim-plans-header">
+      <div class="esim-plans-title">
+        <div class="esim-flag" id="esimPlansFlag"></div>
+        <div class="esim-plans-heading" id="esimPlansHeading">Plans</div>
+      </div>
+      <div class="esim-plans-actions">
+      <div class="esim-plans-tabs">
+          <button class="esim-tab is-active" data-tab="fixed" type="button">Fixed</button>
+          <button class="esim-tab" data-tab="unlimited" type="button">Unlimited</button>
+        </div>
+        <button class="esim-plans-close" id="esimPlansClose" type="button">×</button>
+      </div>
+    </div>
+    <div class="esim-plans-body">
+      <div class="esim-plans-grid" id="esimPlansModalGrid"></div>
+      <button class="btn btn-outline-secondary btn-sm d-none" id="esimPlansMoreBtn" type="button">See more</button>
+    </div>
+  </div>
+</div>
+
+<!-- Buy modal -->
+<div class="modal fade" id="esimBuyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg esim-buy-dialog">
+    <div class="modal-content esim-buy-content">
+      <div class="esim-buy-header">
+        <div class="esim-buy-title">Place order</div>
+        <button type="button" class="esim-buy-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+      </div>
+      <div class="esim-buy-body">
+        <div class="esim-buy-summary">
+          <div class="esim-buy-flag" id="esimBuyFlag"></div>
+          <div class="esim-buy-info">
+            <div class="esim-buy-name" id="esimBuyName">—</div>
+            <div class="text-muted" id="esimBuyCountry">—</div>
+          </div>
+          <div class="esim-buy-stats">
+            <div class="esim-buy-stat">Your price: <strong id="esimBuyPrice">—</strong></div>
+            <div class="esim-buy-stat" id="esimBuyData">Data —</div>
+            <div class="esim-buy-stat" id="esimBuyDuration">Duration —</div>
+          </div>
+        </div>
+
+        <form class="row g-3 mt-1" id="esimBuyForm">
+          <div class="col-12">
+            <label class="form-label">Full Name</label>
+            <input class="form-control" id="esimCustomerName" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label">Phone Number</label>
+            <input class="form-control" id="esimCustomerPhone" placeholder="+9647801231234" required>
+          </div>
+          {% if has_passenger_db %}
+          <div class="col-12">
+            <label class="form-label">Load from database</label>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <button class="btn btn-sm btn-outline-primary pax-db-btn" type="button" id="esimDbOpenBtn">Load passenger</button>
+              <div class="text-muted small" id="esimDbSelected">No passenger loaded.</div>
+            </div>
+          </div>
+          {% endif %}
+          <div class="col-12">
+            <label class="form-label">Payment method</label>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="esimPaymentMethod" id="esimPayCredit" value="credit">
+                <label class="form-check-label" for="esimPayCredit">Credit</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="esimPaymentMethod" id="esimPayCash" value="cash" checked>
+                <label class="form-check-label" for="esimPayCash">Cash</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="esimPayFib">
+                <label class="form-check-label" for="esimPayFib">Pay cash via FIB</label>
+              </div>
+            </div>
+          </div>
+        </form>
+
+        <div class="alert alert-warning d-none mt-3" id="esimBuyError"></div>
+        <div class="alert alert-info d-none mt-3" id="esimBuyProgress"></div>
+
+        <div class="mt-3 d-none" id="esimActivation">
+          <div class="fw-semibold mb-2">Activation codes</div>
+          <div class="esim-activation-grid" id="esimActivationGrid"></div>
+        </div>
+      </div>
+      <div class="esim-buy-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="esimConfirmBuy">Place order</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Passenger DB modal -->
+<div class="modal fade" id="esimDbModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="fw-semibold">Passenger database</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group mb-2">
+          <span class="input-group-text">Search</span>
+          <input class="form-control" id="esimDbModalSearch" placeholder="Passport, name, phone">
+        </div>
+        <div class="text-muted small mb-2" id="esimDbHint">Type to search.</div>
+        <div class="vstack gap-2" id="esimDbResults"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Order details modal -->
+<div class="modal fade" id="esimOrderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg esim-order-dialog">
+    <div class="modal-content esim-order-content">
+      <div class="esim-order-header">
+        <div class="esim-order-title">Order Details</div>
+        <button type="button" class="esim-buy-close" data-bs-dismiss="modal" aria-label="Close">×</button>
+      </div>
+      <div class="esim-order-body">
+        <div class="esim-order-top">
+          <div class="esim-buy-flag" id="esimOrderFlag"></div>
+          <div class="esim-order-info">
+            <div class="esim-order-name" id="esimOrderName">—</div>
+            <div class="text-muted" id="esimOrderCountry">—</div>
+          </div>
+          <div class="esim-order-price" id="esimOrderPrice">—</div>
+        </div>
+
+        <div class="esim-order-card">
+          <div class="esim-order-label">Reference</div>
+          <div class="esim-order-row">
+            <div class="mono" id="esimOrderRef">—</div>
+            <button class="btn btn-sm btn-outline-secondary" type="button" id="esimOrderCopyRef">Copy</button>
+          </div>
+        </div>
+
+        <div class="esim-order-card">
+          <div class="esim-order-label">Customer</div>
+          <div class="esim-order-row">
+            <div>
+              <div class="fw-semibold" id="esimOrderCustomer">—</div>
+              <div class="text-muted small" id="esimOrderAgent">—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="esim-order-card">
+          <div class="esim-order-label">QR Code</div>
+          <div class="esim-order-qr" id="esimOrderQr">
+            <div class="text-muted">QR asset pending supplier confirmation.</div>
+          </div>
+        </div>
+
+        <div class="esim-order-grid">
+          <div class="esim-order-card">
+            <div class="esim-order-label">Activation Codes</div>
+            <div class="esim-order-row">
+              <div class="mono" id="esimOrderActivation">—</div>
+              <button class="btn btn-sm btn-outline-secondary" type="button" id="esimOrderCopyAct">Copy</button>
+            </div>
+          </div>
+          <div class="esim-order-card">
+            <div class="esim-order-label">ICCID List</div>
+            <div class="esim-order-row">
+              <div class="mono" id="esimOrderIccid">—</div>
+              <button class="btn btn-sm btn-outline-secondary" type="button" id="esimOrderCopyIccid">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="esim-order-card d-none" id="esimOrderPaymentCard">
+          <div class="esim-order-label">Payment (FIB)</div>
+          <div class="esim-order-row">
+            <div>
+              <div class="text-muted small">Payment link</div>
+              <a href="#" target="_blank" rel="noopener" id="esimOrderPaymentLink"></a>
+            </div>
+            <img id="esimOrderPaymentQr" alt="FIB QR" style="width: 120px; height: 120px; border-radius: 12px; border: 1px solid #e5e7eb;">
+          </div>
+        </div>
+      </div>
+      <div class="esim-order-footer">
+        <button type="button" class="btn btn-outline-secondary" id="esimOrderRefresh">Refresh</button>
+        <button type="button" class="btn btn-outline-secondary" id="esimOrderShare">Share</button>
+        <button type="button" class="btn btn-success" id="esimOrderWhatsapp">Send via WhatsApp</button>
+        <button type="button" class="btn btn-outline-secondary" id="esimOrderDownload" disabled>Download QR</button>
+        <button type="button" class="btn btn-outline-secondary" id="esimOrderPrint">Print</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  body.esim-modal-open{
+    overflow: hidden;
+  }
+  .esim-page{
+    background: radial-gradient(circle at top, #f7f2e8 0%, #f4f2ec 45%, #f1f3f4 100%);
+    min-height: 100%;
+    padding-bottom: 3rem;
+  }
+  .esim-hero{
+    padding: 3.5rem 0 2.5rem 0;
+    text-align: center;
+  }
+  .esim-hero h1{
+    font-size: clamp(2rem, 4vw, 3.1rem);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin-bottom: .5rem;
+  }
+  .esim-hero p{
+    color: var(--gf-muted);
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+  .esim-eyebrow{
+    text-transform: uppercase;
+    letter-spacing: .2em;
+    font-size: .75rem;
+    color: #7d806f;
+    font-weight: 700;
+    margin-bottom: .75rem;
+  }
+  .esim-search{
+    display: flex;
+    justify-content: center;
+  }
+  .esim-search .form-control{
+    max-width: 800px;
+    border-radius: 999px;
+    padding: .85rem 1.2rem;
+    box-shadow: 0 12px 30px rgba(0,0,0,.06);
+    border: 1px solid rgba(32,33,36,.08);
+  }
+  .esim-search-secondary{
+    justify-content: center;
+    margin: 1rem 0 1.5rem 0;
+  }
+  .esim-section{
+    padding: 1.5rem 0;
+  }
+  .esim-panel{
+    background: #fff;
+    border: 1px solid rgba(32,33,36,.08);
+    border-radius: 26px;
+    padding: 2rem;
+    box-shadow: 0 14px 36px rgba(0,0,0,.06);
+  }
+  .esim-section-head{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .esim-section-head.centered{
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .esim-section-head h2{
+    font-weight: 800;
+    margin: 0;
+  }
+  .esim-subtitle{
+    color: var(--gf-muted);
+    margin: .35rem 0 0 0;
+  }
+  .esim-link{
+    font-weight: 700;
+    text-decoration: none;
+    color: #0f5b55;
+  }
+  .esim-grid{
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  .esim-card{
+    background: #fff;
+    border-radius: 20px;
+    border: 1px solid rgba(32,33,36,.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,.04);
+    padding: 1rem;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .esim-card.placeholder{
+    cursor: default;
+    background: transparent;
+    border: 1px dashed rgba(32,33,36,.12);
+    box-shadow: none;
+  }
+  .esim-card.placeholder:hover{
+    transform: none;
+    box-shadow: none;
+  }
+  .esim-card.placeholder .esim-card-head{
+    opacity: 0;
+  }
+  .esim-card:hover{
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .esim-all-top{
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 1rem;
+  }
+  .esim-back-btn{
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid rgba(32,33,36,.12);
+    background: #fff;
+    color: var(--gf-ink);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .esim-back-btn span{
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: rgba(15,91,85,.08);
+    display: grid;
+    place-items: center;
+    color: #0f5b55;
+    font-weight: 800;
+  }
+  .esim-card-head{
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+  }
+  .esim-flag{
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(32,33,36,.1);
+    background: #f6f7f7;
+    font-size: 1.5rem;
+  }
+  .esim-card-meta{
+    color: var(--gf-muted);
+    font-size: .85rem;
+  }
+  .esim-card-title{
+    font-weight: 700;
+  }
+  .esim-plans{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+  }
+  .esim-plan{
+    background: #fff;
+    border-radius: 18px;
+    border: 1px solid rgba(32,33,36,.08);
+    padding: 1rem;
+  }
+  .esim-plan h3{
+    font-size: 1.05rem;
+    margin: 0 0 .5rem 0;
+    font-weight: 700;
+  }
+  .esim-plan .esim-plan-meta{
+    color: var(--gf-muted);
+    font-size: .9rem;
+  }
+  .esim-plan-price{
+    font-weight: 800;
+    color: #0c6b4f;
+    font-size: 1.1rem;
+  }
+  .esim-activation-grid{
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .esim-activation-card{
+    border: 1px solid rgba(32,33,36,.1);
+    border-radius: 12px;
+    padding: .75rem;
+    background: #f8faf9;
+  }
+  .esim-activation-card canvas{
+    display: block;
+    margin: 0 auto .5rem auto;
+  }
+  .esim-plans-modal{
+    position: fixed;
+    inset: 0;
+    background: rgba(18, 18, 18, 0.35);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    z-index: 2000;
+  }
+  .esim-plans-modal.is-open{ display: flex; }
+  .esim-plans-dialog{
+    width: min(1000px, 96vw);
+    max-height: 86vh;
+    background: #fff;
+    border-radius: 26px;
+    border: 1px solid rgba(32,33,36,.08);
+    box-shadow: 0 24px 50px rgba(0,0,0,.18);
+    display: flex;
+    flex-direction: column;
+  }
+  .esim-plans-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(32,33,36,.12);
+  }
+  .esim-plans-title{
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font-weight: 700;
+  }
+  .esim-plans-title .esim-flag{
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(32,33,36,.12);
+    background: #f7f8f9;
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+  }
+  .esim-plans-heading{
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  .esim-plans-actions{
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .esim-plans-tabs{
+    display: flex;
+    gap: .75rem;
+    font-weight: 700;
+    color: var(--gf-muted);
+  }
+  .esim-tab{
+    border: 0;
+    background: transparent;
+    padding: .25rem .2rem;
+    border-bottom: 2px solid transparent;
+    color: inherit;
+  }
+  .esim-tab.is-active{
+    color: #0f5b55;
+    border-color: #0f5b55;
+  }
+  .esim-plans-close{
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(15,91,85,.08);
+    color: #0f5b55;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .esim-plans-body{
+    padding: 1.5rem;
+    overflow: auto;
+  }
+  .esim-plans-grid{
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .esim-plans-body .btn-outline-secondary{
+    border-radius: 999px;
+    padding: .4rem .9rem;
+  }
+  .esim-buy-dialog{ max-width: 880px; }
+  .esim-buy-content{
+    border-radius: 26px;
+    border: 1px solid rgba(32,33,36,.08);
+    overflow: hidden;
+  }
+  .esim-buy-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(32,33,36,.1);
+  }
+  .esim-buy-title{
+    font-size: 1.35rem;
+    font-weight: 700;
+  }
+  .esim-buy-close{
+    width: 42px;
+    height: 42px;
+    border-radius: 999px;
+    border: 0;
+    background: rgba(15,91,85,.08);
+    color: #0f5b55;
+    font-size: 1.3rem;
+    font-weight: 700;
+  }
+  .esim-buy-body{
+    padding: 1.5rem;
+  }
+  .esim-buy-summary{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    background: #f3f8f6;
+    border: 1px solid rgba(15,91,85,.2);
+    border-radius: 18px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .esim-buy-flag{
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    border: 1px solid rgba(32,33,36,.12);
+    background: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 1.4rem;
+  }
+  .esim-buy-name{
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .esim-buy-stats{
+    display: flex;
+    gap: 1rem;
+    color: var(--gf-muted);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    font-size: .95rem;
+  }
+  .esim-buy-stat strong{
+    color: var(--gf-ink);
+    font-size: 1.1rem;
+  }
+  .esim-db-results{
+    margin-top: .5rem;
+    max-height: 180px;
+    overflow: auto;
+  }
+  .esim-db-results .list-group-item{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+  }
+  .esim-buy-footer{
+    display: flex;
+    justify-content: flex-end;
+    gap: .75rem;
+    padding: 1rem 1.5rem 1.5rem;
+    border-top: 1px solid rgba(32,33,36,.08);
+  }
+  .esim-order-dialog{ max-width: 960px; }
+  .esim-order-content{
+    border-radius: 26px;
+    border: 1px solid rgba(32,33,36,.08);
+    overflow: hidden;
+  }
+  .esim-order-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.1rem 1.25rem;
+    border-bottom: 1px solid rgba(32,33,36,.1);
+  }
+  .esim-order-title{
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .esim-order-body{
+    padding: 1.1rem 1.25rem;
+  }
+  .esim-order-top{
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: .75rem;
+  }
+  .esim-order-name{ font-weight: 700; font-size: 1.05rem; }
+  .esim-order-price{ font-weight: 800; font-size: 1.2rem; }
+  .esim-order-card{
+    border: 1px solid rgba(32,33,36,.12);
+    border-radius: 16px;
+    padding: .85rem 1rem;
+    background: #fff;
+    margin-bottom: .75rem;
+  }
+  .esim-order-label{
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--gf-muted);
+    font-weight: 700;
+    margin-bottom: .5rem;
+  }
+  .esim-order-row{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
+  .esim-order-qr{
+    display: grid;
+    place-items: center;
+    min-height: 120px;
+  }
+  .esim-order-grid{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+  }
+  .esim-order-footer{
+    display: flex;
+    justify-content: center;
+    gap: .75rem;
+    padding: .85rem 1.25rem 1.1rem;
+    border-top: 1px solid rgba(32,33,36,.08);
+    flex-wrap: wrap;
+  }
+  @media (max-width: 900px){
+    .esim-order-top{
+      grid-template-columns: auto 1fr;
+    }
+    .esim-order-price{ justify-self: start; }
+    .esim-order-grid{
+      grid-template-columns: 1fr;
+    }
+  }
+  .modal-backdrop.show{
+    background: rgba(18,18,18,.35);
+    backdrop-filter: blur(6px);
+  }
+  .esim-plan{
+    border-radius: 16px;
+    border: 1px solid rgba(32,33,36,.12);
+    padding: 1rem;
+    background: #fff;
+  }
+  .esim-plan .btn{
+    border-radius: 999px;
+  }
+  #esimPlansMoreBtn{
+    border-radius: 999px;
+    padding: .5rem 1.2rem;
+  }
+  @media (max-width: 768px){
+    .esim-section-head{
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .esim-grid{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .esim-plans-grid{
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  @media (max-width: 560px){
+    .esim-grid{
+      grid-template-columns: 1fr;
+    }
+    .esim-plans-grid{
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const hasAccess = {{ "true" if has_esim else "false" }};
+    const topGrid = document.getElementById("esimTopGrid");
+    const topSection = document.getElementById("esimTopSection");
+    const allGrid = document.getElementById("esimAllGrid");
+    const showAllBtn = document.getElementById("esimShowAllBtn");
+    const allSection = document.getElementById("esimAllSection");
+    const backTopBtn = document.getElementById("esimBackTopBtn");
+    const searchInput = document.getElementById("esimSearchInput");
+    const allSearchInput = document.getElementById("esimAllSearchInput");
+    const plansSection = document.getElementById("esimPlansSection");
+    const plansGrid = document.getElementById("esimPlansGrid");
+    const plansTitle = document.getElementById("esimPlansTitle");
+    const plansSubtitle = document.getElementById("esimPlansSubtitle");
+    const plansModal = document.getElementById("esimPlansModal");
+    const plansModalGrid = document.getElementById("esimPlansModalGrid");
+    const plansMoreBtn = document.getElementById("esimPlansMoreBtn");
+    const plansCloseBtn = document.getElementById("esimPlansClose");
+    const plansFlag = document.getElementById("esimPlansFlag");
+    const plansHeading = document.getElementById("esimPlansHeading");
+    const planTabBtns = document.querySelectorAll(".esim-tab");
+
+    const buyModalEl = document.getElementById("esimBuyModal");
+    const buyModal = buyModalEl ? new bootstrap.Modal(buyModalEl) : null;
+    const buyName = document.getElementById("esimBuyName");
+    const buyPrice = document.getElementById("esimBuyPrice");
+    const buyCountry = document.getElementById("esimBuyCountry");
+    const buyData = document.getElementById("esimBuyData");
+    const buyDuration = document.getElementById("esimBuyDuration");
+    const buyFlag = document.getElementById("esimBuyFlag");
+    const buyError = document.getElementById("esimBuyError");
+    const buyProgress = document.getElementById("esimBuyProgress");
+    const buyConfirm = document.getElementById("esimConfirmBuy");
+    const buyForm = document.getElementById("esimBuyForm");
+    const customerName = document.getElementById("esimCustomerName");
+    const customerPhone = document.getElementById("esimCustomerPhone");
+    const dbOpenBtn = document.getElementById("esimDbOpenBtn");
+    const dbSelected = document.getElementById("esimDbSelected");
+    const dbModalEl = document.getElementById("esimDbModal");
+    const dbModal = dbModalEl ? new bootstrap.Modal(dbModalEl) : null;
+    const dbSearch = document.getElementById("esimDbModalSearch");
+    const dbHint = document.getElementById("esimDbHint");
+    const dbResults = document.getElementById("esimDbResults");
+    const payCredit = document.getElementById("esimPayCredit");
+    const payCash = document.getElementById("esimPayCash");
+    const payFib = document.getElementById("esimPayFib");
+    const activationWrap = document.getElementById("esimActivation");
+    const activationGrid = document.getElementById("esimActivationGrid");
+
+    const orderModalEl = document.getElementById("esimOrderModal");
+    const orderModal = orderModalEl ? new bootstrap.Modal(orderModalEl) : null;
+    const orderFlag = document.getElementById("esimOrderFlag");
+    const orderName = document.getElementById("esimOrderName");
+    const orderCountry = document.getElementById("esimOrderCountry");
+    const orderPrice = document.getElementById("esimOrderPrice");
+    const orderRef = document.getElementById("esimOrderRef");
+    const orderCustomer = document.getElementById("esimOrderCustomer");
+    const orderAgent = document.getElementById("esimOrderAgent");
+    const orderQr = document.getElementById("esimOrderQr");
+    const orderActivation = document.getElementById("esimOrderActivation");
+    const orderIccid = document.getElementById("esimOrderIccid");
+    const orderCopyRef = document.getElementById("esimOrderCopyRef");
+    const orderCopyAct = document.getElementById("esimOrderCopyAct");
+    const orderCopyIccid = document.getElementById("esimOrderCopyIccid");
+    const orderRefresh = document.getElementById("esimOrderRefresh");
+    const orderShare = document.getElementById("esimOrderShare");
+    const orderWhatsapp = document.getElementById("esimOrderWhatsapp");
+    const orderDownload = document.getElementById("esimOrderDownload");
+    const orderPrint = document.getElementById("esimOrderPrint");
+    const orderPaymentCard = document.getElementById("esimOrderPaymentCard");
+    const orderPaymentLink = document.getElementById("esimOrderPaymentLink");
+    const orderPaymentQr = document.getElementById("esimOrderPaymentQr");
+
+    let bundles = [];
+    let countries = [];
+    let countriesByName = [];
+    let popularDestinations = [];
+    let selectedCountry = null;
+    let selectedBundle = null;
+    let activeTab = "fixed";
+    let fixedExpanded = false;
+    let fixedPlans = [];
+    let unlimitedPlans = [];
+    const canUsePassengerDb = {{ "true" if has_passenger_db else "false" }};
+    let dbTimer = null;
+    let lastFibPayment = null;
+    let lastOrderQrDataUrl = "";
+
+    const syncPayFibState = () => {
+      if (!payFib) return;
+      if (payCredit && payCredit.checked) {
+        payFib.checked = false;
+        payFib.disabled = true;
+      } else {
+        payFib.disabled = false;
+      }
+    };
+
+    const normalizeName = (value) => String(value || "")
+      .toLowerCase()
+      .replace(/\s*\+\s*/g, "+")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+    const NO_FLAG_NAMES = new Set([
+      "africa",
+      "balkans",
+      "carribbean",
+      "cenam",
+      "europe+usa",
+      "europe usa business hubs",
+      "europe lite",
+      "eurpe +",
+      "eurpoe + usa",
+      "global",
+      "global light",
+      "global max",
+      "global standard",
+      "latam",
+      "north america",
+      "ocean",
+      "south east eurppe",
+      "americas",
+      "americas+us+ca",
+      "asia",
+      "middle east",
+    ].map(normalizeName));
+
+    const initialsMap = new Map(
+      [
+        ["middle east", "ME"],
+        ["asia", "AS"],
+        ["americas", "A+"],
+        ["americas + us + ca", "A+"],
+        ["hawaii", "HA"],
+        ["northern cyprus", "NC"],
+      ].map(([k, v]) => [normalizeName(k), v])
+    );
+
+    const displayName = (name) => {
+      const raw = String(name || "");
+      if (raw && raw === raw.toUpperCase() && raw.length > 3) {
+        return raw.toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
+      }
+      return raw;
+    };
+
+    const fmtIQD = (minor, currency="IQD") => {
+      if (minor == null) return "—";
+      const n = Number(minor);
+      if (!Number.isFinite(n)) return String(minor);
+      const txt = n.toLocaleString("en-US");
+      return `${currency} ${txt}`;
+    };
+
+    const toFlag = (iso) => {
+      try {
+        if (!iso || iso.length !== 2) return "";
+        const code = iso.toUpperCase();
+        if (!/^[A-Z]{2}$/.test(code)) return "";
+        const A = 0x1F1E6;
+        const chars = [...code].map(c => String.fromCodePoint(A + (c.charCodeAt(0) - 65)));
+        return chars.join("");
+      } catch {
+        return "";
+      }
+    };
+
+    const getCountryInitials = (country) => {
+      const nameLower = normalizeName(country?.name || "");
+      const raw = String(country?.initials || initialsMap.get(nameLower) || "").toUpperCase();
+      return raw.length <= 3 ? raw : "";
+    };
+
+    const getCountryIcon = (country) => {
+      const nameLower = normalizeName(country?.name || "");
+      const flag = NO_FLAG_NAMES.has(nameLower) ? "" : toFlag(country?.iso);
+      if (flag) return flag;
+      const initials = getCountryInitials(country);
+      return initials;
+    };
+
+    const updateLocalBalance = (method, amount) => {
+      if (!amount || !Number.isFinite(Number(amount))) return;
+      try {
+        const USERSKEY = "b2b_users_v1";
+        const ACTIVE = "active_user_id_v1";
+        const list = JSON.parse(localStorage.getItem(USERSKEY) || "[]");
+        const id = localStorage.getItem(ACTIVE);
+        const user = list.find((u) => String(u.id) === String(id));
+        if (!user) return;
+        const amt = Number(amount);
+        if (method === "credit") {
+          user.credit = Math.max(0, Number(user.credit || 0) - amt);
+        } else if (method === "cash") {
+          user.cash = Math.max(0, Number(user.cash || 0) - amt);
+        }
+        localStorage.setItem(USERSKEY, JSON.stringify(list));
+      } catch {}
+    };
+
+    const dataLabel = (mb, unlimited) => {
+      if (unlimited) return "Unlimited";
+      const gb = mb ? (mb / 1024) : 0;
+      if (gb >= 1) return `${gb.toFixed(gb % 1 === 0 ? 0 : 1)} GB`;
+      return `${mb || 0} MB`;
+    };
+
+    const buildCountries = (items) => {
+      const map = new Map();
+      items.forEach((item) => {
+        const price = item?.price?.finalMinor;
+        const countriesList = Array.isArray(item?.countries) ? item.countries : [];
+        countriesList.forEach((c) => {
+          const iso = String(c?.iso || "").toUpperCase();
+          const name = String(c?.name || "").trim() || iso;
+          if (!iso && !name) return;
+          const key = iso || name;
+          if (!map.has(key)) {
+            map.set(key, { iso, name, region: c?.region || "", count: 0, min: price, plans: [] });
+          }
+          const entry = map.get(key);
+          entry.count += 1;
+          entry.min = entry.min == null ? price : Math.min(entry.min, price || entry.min);
+          entry.plans.push(item);
+        });
+      });
+      const list = Array.from(map.values());
+      countries = list.slice().sort((a, b) => b.count - a.count);
+      countriesByName = list.slice().sort((a, b) => {
+        const an = (a.name || "").toLowerCase();
+        const bn = (b.name || "").toLowerCase();
+        return an.localeCompare(bn);
+      });
+    };
+
+    const renderCountries = (list, el) => {
+      if (!el) return;
+      el.innerHTML = "";
+      if (!list.length) {
+        el.innerHTML = '<div class="text-muted">No countries found.</div>';
+        return;
+      }
+      list.forEach((c) => {
+        const icon = getCountryIcon({ name: c.name || "", iso: c.iso || "", initials: c.initials || "" });
+        const minPrice = c.min == null ? "—" : fmtIQD(c.min);
+        const displayLabel = displayName(c.name || "");
+        const card = document.createElement("div");
+        card.className = "esim-card";
+        if (c.is_placeholder) card.classList.add("placeholder");
+        card.dataset.iso = c.iso || c.name;
+        card.innerHTML = `
+          <div class="esim-card-head">
+            <div class="esim-flag">${icon}</div>
+            <div>
+              <div class="esim-card-meta">${c.count || 0} plans</div>
+              <div class="esim-card-title">${displayLabel}</div>
+              <div class="esim-card-meta">Starting from ${minPrice}</div>
+            </div>
+          </div>
+        `;
+        if (!c.is_placeholder) {
+          card.addEventListener("click", () => openPlansModal(c));
+        }
+        el.appendChild(card);
+      });
+    };
+
+    const renderPlans = (country) => {
+      if (!plansGrid) return;
+      if (!country || !country.plans || !country.plans.length) {
+        plansGrid.innerHTML = '<div class="text-muted">No plans available.</div>';
+        return;
+      }
+      const plans = country.plans.slice().sort((a, b) => {
+        const pa = a?.price?.finalMinor || 0;
+        const pb = b?.price?.finalMinor || 0;
+        return pa - pb;
+      });
+      plansGrid.innerHTML = "";
+      plans.forEach((p) => {
+        const priceMinor = p?.price?.finalMinor;
+        const currency = p?.price?.currency || "IQD";
+        const card = document.createElement("div");
+        card.className = "esim-plan";
+        card.innerHTML = `
+          <h3>${p.description || p.bundleName}</h3>
+          <div class="esim-plan-meta">${dataLabel(p.dataAmountMb, p.unlimited)} • ${p.durationDays || "—"} days</div>
+          <div class="d-flex align-items-center justify-content-between mt-3">
+            <div class="esim-plan-price">${fmtIQD(priceMinor, currency)}</div>
+            <button class="btn btn-sm btn-primary" type="button">Buy</button>
+          </div>
+        `;
+        card.querySelector("button").addEventListener("click", () => openBuyModal(p));
+        plansGrid.appendChild(card);
+      });
+    };
+
+    const closePlansModal = () => {
+      if (!plansModal) return;
+      plansModal.classList.remove("is-open");
+      document.body.classList.remove("esim-modal-open");
+    };
+
+    const openPlansModal = (country) => {
+      if (!plansModal) return;
+      selectedCountry = country;
+      fixedExpanded = false;
+      const plans = Array.isArray(country?.plans) ? country.plans : [];
+      fixedPlans = plans.filter(p => !p?.unlimited);
+      unlimitedPlans = plans.filter(p => p?.unlimited);
+      fixedPlans.sort((a, b) => (a?.price?.finalMinor || 0) - (b?.price?.finalMinor || 0));
+      unlimitedPlans.sort((a, b) => (a?.durationDays || 0) - (b?.durationDays || 0));
+      activeTab = fixedPlans.length ? "fixed" : "unlimited";
+      planTabBtns.forEach(btn => {
+        if (btn.hasAttribute("disabled")) {
+          btn.classList.remove("is-active");
+          return;
+        }
+        btn.classList.toggle("is-active", btn.dataset.tab === activeTab);
+      });
+
+      const name = country?.name || "Plans";
+      if (plansHeading) plansHeading.textContent = `Plans for ${name}`;
+      if (plansFlag) {
+        plansFlag.textContent = getCountryIcon({ name, iso: country?.iso || "", initials: country?.initials || "" }) || "";
+      }
+
+      renderPlansModal();
+      plansModal.classList.add("is-open");
+      document.body.classList.add("esim-modal-open");
+    };
+
+    const renderPlansModal = () => {
+      if (!plansModalGrid) return;
+      const list = activeTab === "unlimited" ? unlimitedPlans : fixedPlans;
+      const limit = activeTab === "fixed" ? 6 : list.length;
+      const slice = activeTab === "fixed" && !fixedExpanded ? list.slice(0, limit) : list;
+
+      plansModalGrid.innerHTML = "";
+      if (!slice.length) {
+        plansModalGrid.innerHTML = '<div class="text-muted">No plans available.</div>';
+      } else {
+        slice.forEach((p) => {
+          const priceMinor = p?.price?.finalMinor;
+          const currency = p?.price?.currency || "IQD";
+          const card = document.createElement("div");
+          card.className = "esim-plan";
+          card.innerHTML = `
+            <h3>${p.description || p.bundleName}</h3>
+            <div class="esim-plan-meta">${dataLabel(p.dataAmountMb, p.unlimited)} • ${p.durationDays || "—"} days</div>
+            <div class="d-flex align-items-center justify-content-between mt-3">
+              <div>
+                <div class="text-muted small">Your price:</div>
+                <div class="esim-plan-price">${fmtIQD(priceMinor, currency)}</div>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary" type="button">Select plan</button>
+            </div>
+          `;
+          card.querySelector("button").addEventListener("click", () => {
+            closePlansModal();
+            openBuyModal(p);
+          });
+          plansModalGrid.appendChild(card);
+        });
+      }
+
+      if (plansMoreBtn) {
+        const showMore = activeTab === "fixed" && !fixedExpanded && fixedPlans.length > 6;
+        plansMoreBtn.classList.toggle("d-none", !showMore);
+      }
+    };
+
+    const renderTopDestinations = () => {
+      if (!topGrid) return;
+      const byIso = new Map(countries.map((c) => [String(c.iso || "").toUpperCase(), c]));
+      const byName = new Map(countriesByName.map((c) => [String(c.name || "").toLowerCase(), c]));
+      const source = (popularDestinations && popularDestinations.length)
+        ? popularDestinations.slice(0, 16)
+        : countries.slice(0, 8);
+
+      const resolved = source.map((item) => {
+        const iso = String(item.iso || "").toUpperCase();
+        const name = String(item.name || "");
+        let base = null;
+        if (iso) base = byIso.get(iso) || null;
+        if (!base && name) base = byName.get(name.toLowerCase()) || null;
+        const entry = base
+          ? { ...base }
+          : { iso, name, region: "", count: 0, min: null, plans: [] };
+        if (name) entry.name = name;
+        if (iso) entry.iso = iso;
+        if (item.initials) entry.initials = item.initials;
+        entry._popular = true;
+        return entry;
+      });
+      while (resolved.length < 16) {
+        resolved.push({ is_placeholder: true, name: "", iso: "", count: 0, min: null, plans: [] });
+      }
+
+      renderCountries(resolved, topGrid);
+    };
+
+    const loadSettings = async () => {
+      if (!hasAccess) return;
+      try {
+        const r = await fetch("/esim/api/settings");
+        const data = await r.json();
+        if (r.status < 400) {
+          const list = Array.isArray(data?.popular_destinations) ? data.popular_destinations : [];
+          popularDestinations = list.map((d) => ({
+            name: String(d?.name || ""),
+            iso: String(d?.iso || ""),
+            initials: String(d?.initials || "").toUpperCase(),
+          })).filter(d => d.name).slice(0, 16);
+        }
+      } catch {}
+    };
+
+    const showError = (msg) => {
+      if (!buyError) return;
+      if (!msg) {
+        buyError.classList.add("d-none");
+        buyError.textContent = "";
+      } else {
+        buyError.classList.remove("d-none");
+        buyError.textContent = msg;
+      }
+    };
+
+    const showProgress = (msg) => {
+      if (!buyProgress) return;
+      if (!msg) {
+        buyProgress.classList.add("d-none");
+        buyProgress.textContent = "";
+      } else {
+        buyProgress.classList.remove("d-none");
+        buyProgress.textContent = msg;
+      }
+    };
+
+    const renderDbResults = (profiles = []) => {
+      if (!dbResults) return;
+      dbResults.innerHTML = "";
+      if (!profiles.length) {
+        dbResults.innerHTML = '<div class="text-muted small">No passengers found.</div>';
+        return;
+      }
+      profiles.forEach((prof) => {
+        const members = Array.isArray(prof.members) ? prof.members : [];
+        const phone = prof.phone || "";
+        const label = prof.label || (members.length ? `${members.length} passenger(s)` : "Profile");
+        const card = document.createElement("div");
+        card.className = "card search-card";
+        let rows = "";
+        for (const m of members) {
+          const name = `${m.first_name || ""} ${m.last_name || ""}`.trim();
+          if (!name) continue;
+          const mPhone = m.phone || phone || "";
+          rows += `
+            <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
+              <div>
+                <div class="fw-semibold">${esc(name)}</div>
+                <div class="text-muted small">${esc(mPhone)}</div>
+              </div>
+              <button class="btn btn-sm btn-primary esim-db-select" type="button"
+                data-name="${encodeURIComponent(name)}" data-phone="${encodeURIComponent(mPhone)}">Select</button>
+            </div>
+          `;
+        }
+        card.innerHTML = `
+          <div class="card-body">
+            <div class="fw-semibold">${esc(label)}</div>
+            <div class="vstack gap-2 mt-2">
+              ${rows || "<div class='text-muted small'>No passengers in this profile.</div>"}
+            </div>
+          </div>
+        `;
+        dbResults.appendChild(card);
+      });
+
+      dbResults.querySelectorAll(".esim-db-select").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const name = decodeURIComponent(btn.getAttribute("data-name") || "");
+          const phone = decodeURIComponent(btn.getAttribute("data-phone") || "");
+          if (customerName) customerName.value = name;
+          if (customerPhone) customerPhone.value = phone;
+          if (dbSelected) dbSelected.textContent = name ? `Loaded: ${name}` : "Passenger loaded.";
+          if (dbModal) dbModal.hide();
+        });
+      });
+    };
+
+    const searchPassengerDb = async (q) => {
+      if (!canUsePassengerDb) return;
+      const query = String(q || "").trim();
+      if (dbHint) dbHint.textContent = query.length < 2 && query !== "" ? "Type at least 2 characters." : "";
+      if (query.length > 0 && query.length < 2) {
+        renderDbResults([]);
+        return;
+      }
+      try {
+        const r = await fetch(`/passenger-database/api/search?q=${encodeURIComponent(query)}`);
+        const data = await r.json();
+        if (r.status >= 400 || data?.status !== "ok") {
+          renderDbResults([]);
+          return;
+        }
+        renderDbResults(data.results || []);
+      } catch {
+        renderDbResults([]);
+      }
+    };
+
+    const openBuyModal = async (bundle) => {
+      selectedBundle = bundle;
+      lastFibPayment = null;
+      showError("");
+      showProgress("");
+      activationWrap.classList.add("d-none");
+      activationGrid.innerHTML = "";
+      if (dbResults) dbResults.innerHTML = "";
+      if (dbSearch) dbSearch.value = "";
+      if (dbHint) dbHint.textContent = "Type to search.";
+      if (dbSelected) dbSelected.textContent = "No passenger loaded.";
+      if (buyName) buyName.textContent = bundle.description || bundle.bundleName;
+      if (buyCountry) buyCountry.textContent = selectedCountry?.name || "";
+      if (buyData) buyData.textContent = `Data ${dataLabel(bundle.dataAmountMb, bundle.unlimited)}`;
+      if (buyDuration) buyDuration.textContent = `Duration ${bundle.durationDays || "—"} days`;
+      if (buyFlag) {
+        buyFlag.textContent = getCountryIcon({
+          name: selectedCountry?.name || "",
+          iso: selectedCountry?.iso || "",
+          initials: selectedCountry?.initials || "",
+        }) || "";
+      }
+
+      try {
+        const r = await fetch("/esim/api/quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ bundleName: bundle.bundleName }),
+        });
+        const data = await r.json();
+        if (r.status >= 400) {
+          showError(data?.error || "Failed to fetch quote.");
+        } else {
+          const p = data?.price?.finalMinor ?? bundle?.price?.finalMinor;
+          bundle._quotedPriceMinor = p;
+          bundle._quotedCurrency = data?.price?.currency || bundle?.price?.currency || "IQD";
+          buyPrice.textContent = fmtIQD(p, bundle._quotedCurrency || "IQD");
+        }
+      } catch {
+        showError("Failed to fetch quote.");
+      }
+
+      if (buyModal) buyModal.show();
+    };
+
+    if (orderRefresh) {
+      orderRefresh.addEventListener("click", async () => {
+        const ref = orderRef?.textContent?.trim();
+        if (!ref) return;
+        const r = await fetch(`/esim/api/orders/${encodeURIComponent(ref)}`);
+        const latest = await r.json();
+        renderOrderDetails({
+          orderName: orderName?.textContent || "",
+          countryName: orderCountry?.textContent || "",
+          countryIso: selectedCountry?.iso || "",
+          initials: selectedCountry?.initials || "",
+          priceDisplay: orderPrice?.textContent || "",
+          orderRef: ref,
+          customerName: orderCustomer?.textContent || "",
+          customerPhone: "",
+          agentName: orderAgent?.textContent?.replace("Served by: ", "") || "",
+          activationCodes: latest.activationCodes || [],
+          iccidList: latest.iccidList || [],
+          fibPayment: lastFibPayment,
+        });
+      });
+    }
+
+    const openOrderModal = (data) => {
+      if (orderModal) {
+        renderOrderDetails(data);
+        orderModal.show();
+      }
+    };
+
+    const renderActivation = (codes) => {
+      if (!activationWrap || !activationGrid) return;
+      activationGrid.innerHTML = "";
+      if (!Array.isArray(codes) || !codes.length) return;
+      activationWrap.classList.remove("d-none");
+      codes.forEach((code, idx) => {
+        const card = document.createElement("div");
+        card.className = "esim-activation-card";
+        const canvas = document.createElement("canvas");
+        card.appendChild(canvas);
+        const codeEl = document.createElement("div");
+        codeEl.className = "mono small text-break";
+        codeEl.textContent = code;
+        const copyBtn = document.createElement("button");
+        copyBtn.className = "btn btn-sm btn-outline-secondary mt-2";
+        copyBtn.textContent = "Copy";
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard?.writeText(code);
+          copyBtn.textContent = "Copied";
+          setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+        });
+        card.appendChild(codeEl);
+        card.appendChild(copyBtn);
+        activationGrid.appendChild(card);
+        if (window.QRCode) {
+          QRCode.toCanvas(canvas, code, { width: 160, margin: 1 });
+        }
+      });
+    };
+
+    const buildShareText = (data) => {
+      const lines = [];
+      if (data.orderName) lines.push(`Plan: ${data.orderName}`);
+      if (data.orderRef) lines.push(`Reference: ${data.orderRef}`);
+      if (data.customerName) lines.push(`Customer: ${data.customerName}`);
+      if (data.customerPhone) lines.push(`Phone: ${data.customerPhone}`);
+      if (data.activationCodes?.length) lines.push(`Activation: ${data.activationCodes.join(", ")}`);
+      if (data.iccidList?.length) lines.push(`ICCID: ${data.iccidList.join(", ")}`);
+      return lines.join("\n");
+    };
+
+    const downloadQr = (dataUrl, filename = "esim-qr.png") => {
+      if (!dataUrl) return;
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
+
+    const dataUrlToFile = async (dataUrl, filename) => {
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      return new File([blob], filename, { type: blob.type || "image/png" });
+    };
+
+    const setOrderQr = async (code) => {
+      if (!orderQr) return;
+      orderQr.innerHTML = "";
+      lastOrderQrDataUrl = "";
+      if (!code) {
+        orderQr.innerHTML = '<div class="text-muted">QR asset pending supplier confirmation.</div>';
+        if (orderDownload) orderDownload.disabled = true;
+        return;
+      }
+      const canvas = document.createElement("canvas");
+      orderQr.appendChild(canvas);
+      if (window.QRCode) {
+        QRCode.toCanvas(canvas, code, { width: 160, margin: 1 });
+        try {
+          lastOrderQrDataUrl = canvas.toDataURL("image/png");
+          if (!lastOrderQrDataUrl) {
+            lastOrderQrDataUrl = await QRCode.toDataURL(code, { width: 320, margin: 1 });
+          }
+        } catch {
+          lastOrderQrDataUrl = "";
+        }
+      }
+      if (orderDownload) orderDownload.disabled = !lastOrderQrDataUrl;
+    };
+
+    const showFibPaymentModal = (payment, amount, onContinue = null) => {
+      const fibModalEl = document.getElementById("fibPayModal");
+      if (!fibModalEl || !window.bootstrap) return;
+      const fibModal = window.bootstrap.Modal.getOrCreateInstance(fibModalEl);
+      const fibAmount = document.getElementById("fibPayAmount");
+      const fibStatus = document.getElementById("fibPayStatus");
+      const fibResult = document.getElementById("fibPayResult");
+      const fibQr = document.getElementById("fibPayQr");
+      const fibLink = document.getElementById("fibPayLink");
+      const fibRef = document.getElementById("fibPayRef");
+      const fibCreateBtn = document.getElementById("fibPayCreateBtn");
+      const fibContinueBtn = document.getElementById("fibPayContinueBtn");
+
+      if (fibAmount) {
+        fibAmount.value = Number.isFinite(Number(amount)) ? String(Math.round(Number(amount))) : "";
+        fibAmount.readOnly = true;
+      }
+      if (fibStatus) { fibStatus.classList.add("d-none"); fibStatus.textContent = ""; }
+      if (fibResult) fibResult.classList.remove("d-none");
+
+      if (payment) {
+        if (fibQr) fibQr.src = payment.qr_url || "";
+        if (fibLink) { fibLink.href = payment.payment_link || "#"; fibLink.textContent = payment.payment_link || ""; }
+        if (fibRef) fibRef.textContent = payment.reference || "";
+      }
+      if (fibCreateBtn) fibCreateBtn.classList.add("d-none");
+      if (fibContinueBtn) {
+        if (onContinue) {
+          fibContinueBtn.classList.remove("d-none");
+          fibContinueBtn.onclick = () => {
+            fibContinueBtn.classList.add("d-none");
+            fibModal.hide();
+            onContinue();
+          };
+        } else {
+          fibContinueBtn.classList.add("d-none");
+        }
+      }
+      fibModal.show();
+    };
+
+    const renderOrderDetails = (data) => {
+      if (!data) return;
+      const name = data.orderName || "";
+      const country = data.countryName || "";
+      const price = data.priceDisplay || "";
+      const customer = data.customerName || "—";
+      const phone = data.customerPhone || "";
+      const agent = data.agentName ? `Served by: ${data.agentName}` : "";
+
+      if (orderName) orderName.textContent = name || "—";
+      if (orderCountry) orderCountry.textContent = country || "—";
+      if (orderPrice) orderPrice.textContent = price || "—";
+      if (orderRef) orderRef.textContent = data.orderRef || "—";
+      if (orderCustomer) orderCustomer.textContent = customer;
+      if (orderAgent) orderAgent.textContent = agent;
+
+      if (orderActivation) orderActivation.textContent = (data.activationCodes || []).join("\n") || "—";
+      if (orderIccid) orderIccid.textContent = (data.iccidList || []).join("\n") || "—";
+
+      if (orderFlag) {
+        orderFlag.textContent = getCountryIcon({
+          name: country || "",
+          iso: data.countryIso || "",
+          initials: data.initials || "",
+        }) || "";
+      }
+
+      const codes = data.activationCodes || [];
+      setOrderQr(codes[0] || "");
+
+      if (orderPaymentCard && orderPaymentLink && orderPaymentQr) {
+        const pay = data.fibPayment;
+        if (pay && pay.payment_link) {
+          orderPaymentCard.classList.remove("d-none");
+          orderPaymentLink.href = pay.payment_link;
+          orderPaymentLink.textContent = pay.payment_link;
+          orderPaymentQr.src = pay.qr_url || "";
+        } else {
+          orderPaymentCard.classList.add("d-none");
+          orderPaymentLink.textContent = "";
+          orderPaymentLink.removeAttribute("href");
+          orderPaymentQr.src = "";
+        }
+      }
+
+      if (orderShare) {
+        orderShare.onclick = async () => {
+          const text = buildShareText(data);
+          try {
+            await navigator.clipboard.writeText(text);
+          } catch {}
+        };
+      }
+      if (orderWhatsapp) {
+        orderWhatsapp.onclick = async () => {
+          const text = buildShareText(data);
+          if (lastOrderQrDataUrl) {
+            try {
+              const file = await dataUrlToFile(lastOrderQrDataUrl, `esim-${data.orderRef || "qr"}.png`);
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ text, files: [file], title: "eSIM QR" });
+                return;
+              }
+            } catch {}
+          }
+          if (lastOrderQrDataUrl) {
+            downloadQr(lastOrderQrDataUrl, `esim-${data.orderRef || "qr"}.png`);
+          }
+          const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+          window.open(url, "_blank");
+        };
+      }
+      if (orderDownload) {
+        orderDownload.onclick = () => {
+          if (lastOrderQrDataUrl) {
+            downloadQr(lastOrderQrDataUrl, `esim-${data.orderRef || "qr"}.png`);
+          }
+        };
+      }
+      if (orderPrint) {
+        orderPrint.onclick = () => window.print();
+      }
+      if (orderCopyRef) {
+        orderCopyRef.onclick = async () => {
+          try { await navigator.clipboard.writeText(data.orderRef || ""); } catch {}
+        };
+      }
+      if (orderCopyAct) {
+        orderCopyAct.onclick = async () => {
+          try { await navigator.clipboard.writeText((data.activationCodes || []).join("\n")); } catch {}
+        };
+      }
+      if (orderCopyIccid) {
+        orderCopyIccid.onclick = async () => {
+          try { await navigator.clipboard.writeText((data.iccidList || []).join("\n")); } catch {}
+        };
+      }
+    };
+
+    const pollOrder = async (reference) => {
+      if (!reference) {
+        showError("Missing order reference.");
+        return;
+      }
+      const delays = [2000, 5000, 10000, 20000, 30000, 60000, 120000];
+      for (const delay of delays) {
+        await new Promise(r => setTimeout(r, delay));
+        showProgress(`Checking status...`);
+        const r = await fetch(`/esim/api/orders/${encodeURIComponent(reference)}`);
+        const data = await r.json();
+        if (data?.status === "completed") {
+          showProgress("");
+          const orderData = {
+            orderName: selectedBundle?.description || selectedBundle?.bundleName || "eSIM",
+            countryName: selectedCountry?.name || "",
+            countryIso: selectedCountry?.iso || "",
+            initials: selectedCountry?.initials || "",
+            priceDisplay: fmtIQD(selectedBundle?._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? null, selectedBundle?._quotedCurrency || "IQD"),
+            orderRef: reference,
+            customerName: customerName?.value?.trim() || "",
+            customerPhone: customerPhone?.value?.trim() || "",
+            agentName: "{{ current_user.username or current_user.email or '' }}",
+            activationCodes: data.activationCodes || [],
+            iccidList: data.iccidList || [],
+            fibPayment: lastFibPayment,
+          };
+          renderOrderDetails(orderData);
+          return;
+        }
+        if (data?.status === "failed" || data?.status === "revoked") {
+          showError(data?.statusMessage || "Order failed.");
+          showProgress("");
+          return;
+        }
+      }
+      showProgress("");
+      showError("Order still processing. Please check later.");
+    };
+
+    if (buyConfirm) {
+      buyConfirm.addEventListener("click", async () => {
+        if (!selectedBundle) return;
+        showError("");
+        showProgress("");
+        const name = customerName?.value?.trim();
+        let phone = customerPhone?.value?.trim();
+        const paymentMethod = payCredit?.checked ? "credit" : "cash";
+        const paymentFib = !!(payFib?.checked && paymentMethod === "cash");
+        const qty = 1;
+        if (!name || !phone) {
+          showError("Please enter customer name and phone.");
+          return;
+        }
+        const idempotencyKey = `esim-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const unitMinor = Number(selectedBundle._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? NaN);
+        const totalIqd = Number.isFinite(unitMinor) ? Math.round(unitMinor * qty) : null;
+        const placeOrder = async (fibPaymentOverride = null) => {
+          showProgress("Placing order...");
+          try {
+            const payload = {
+              bundleName: selectedBundle.bundleName,
+              quantity: qty,
+              customerName: name,
+              customerPhone: phone,
+              idempotencyKey,
+              payment_method: paymentMethod,
+              payment_fib: paymentFib,
+              total_iqd: totalIqd,
+              _meta: {
+                unit_price_iqd_minor: selectedBundle._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? null,
+                bundle_description: selectedBundle.description || "",
+                country_name: selectedCountry?.name || "",
+                country_iso: selectedCountry?.iso || "",
+              },
+            };
+            if (fibPaymentOverride) payload.fib_payment = fibPaymentOverride;
+            const r = await fetch("/esim/api/orders", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await r.json();
+            if (r.status >= 400) {
+              showError(data?.error || "Order failed.");
+              showProgress("");
+              return;
+            }
+            const status = data?.status || "processing";
+            lastFibPayment = data.payment || fibPaymentOverride || lastFibPayment;
+            if (status === "completed") {
+              showProgress("");
+              if (paymentMethod === "credit" && totalIqd) updateLocalBalance("credit", totalIqd);
+              if (paymentMethod === "cash" && !paymentFib && totalIqd) updateLocalBalance("cash", totalIqd);
+              const orderData = {
+                orderName: selectedBundle?.description || selectedBundle?.bundleName || "eSIM",
+                countryName: selectedCountry?.name || "",
+                countryIso: selectedCountry?.iso || "",
+                initials: selectedCountry?.initials || "",
+                priceDisplay: fmtIQD(selectedBundle?._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? null, selectedBundle?._quotedCurrency || "IQD"),
+                orderRef: data.orderReference || data.order_id || data.orderId || "",
+                customerName: name,
+                customerPhone: phone,
+                agentName: "{{ current_user.username or current_user.email or '' }}",
+                activationCodes: data.activationCodes || [],
+                iccidList: data.iccidList || [],
+                fibPayment: lastFibPayment,
+              };
+              if (buyModal) buyModal.hide();
+              openOrderModal(orderData);
+            } else if (status === "processing") {
+              showProgress("Order processing...");
+              const ref = data.orderReference || data.order_id || data.orderId || "";
+              if (orderRefresh) {
+                orderRefresh.onclick = async () => {
+                  if (!ref) return;
+                  const rr = await fetch(`/esim/api/orders/${encodeURIComponent(ref)}`);
+                  const latest = await rr.json();
+                  const orderData = {
+                    orderName: selectedBundle?.description || selectedBundle?.bundleName || "eSIM",
+                    countryName: selectedCountry?.name || "",
+                    countryIso: selectedCountry?.iso || "",
+                    initials: selectedCountry?.initials || "",
+                    priceDisplay: fmtIQD(selectedBundle?._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? null, selectedBundle?._quotedCurrency || "IQD"),
+                    orderRef: ref,
+                    customerName: name,
+                    customerPhone: phone,
+                    agentName: "{{ current_user.username or current_user.email or '' }}",
+                    activationCodes: latest.activationCodes || [],
+                    iccidList: latest.iccidList || [],
+                    fibPayment: lastFibPayment,
+                  };
+                  renderOrderDetails(orderData);
+                };
+              }
+              if (buyModal) buyModal.hide();
+              openOrderModal({
+                orderName: selectedBundle?.description || selectedBundle?.bundleName || "eSIM",
+                countryName: selectedCountry?.name || "",
+                countryIso: selectedCountry?.iso || "",
+                initials: selectedCountry?.initials || "",
+                priceDisplay: fmtIQD(selectedBundle?._quotedPriceMinor ?? selectedBundle?.price?.finalMinor ?? null, selectedBundle?._quotedCurrency || "IQD"),
+                orderRef: ref,
+                customerName: name,
+                customerPhone: phone,
+                agentName: "{{ current_user.username or current_user.email or '' }}",
+                activationCodes: [],
+                iccidList: [],
+                fibPayment: lastFibPayment,
+              });
+              await pollOrder(ref);
+            } else {
+              showError(data?.statusMessage || "Order failed.");
+              showProgress("");
+            }
+          } catch {
+            showError("Order failed.");
+            showProgress("");
+          }
+        };
+
+        if (paymentMethod === "cash" && paymentFib) {
+          if (!window.createFibPayment || !totalIqd) {
+            showError("Unable to create FIB payment.");
+            return;
+          }
+          showProgress("Creating payment...");
+          try {
+            const payment = await window.createFibPayment(totalIqd, "eSIM payment");
+            lastFibPayment = payment;
+            if (buyModal) buyModal.hide();
+            showFibPaymentModal(payment, totalIqd, async () => {
+              await placeOrder(payment);
+            });
+          } catch {
+            showError("Failed to create FIB payment.");
+            showProgress("");
+          }
+          return;
+        }
+
+        await placeOrder();
+      });
+    }
+
+    const filterAndRender = (query) => {
+      const q = (query || "").toLowerCase().trim();
+      const base = countriesByName.length ? countriesByName : countries;
+      const filtered = !q ? base : base.filter((c) => {
+        return (
+          c.name.toLowerCase().includes(q) ||
+          (c.region || "").toLowerCase().includes(q) ||
+          (c.iso || "").toLowerCase().includes(q)
+        );
+      });
+      renderCountries(filtered, allGrid);
+    };
+
+    if (allSearchInput) {
+      allSearchInput.addEventListener("input", (e) => filterAndRender(e.target.value));
+    }
+    if (showAllBtn && allSection) {
+      showAllBtn.addEventListener("click", () => {
+        allSection.classList.remove("d-none");
+        if (topSection) topSection.classList.add("d-none");
+        allSection.scrollIntoView({ behavior: "smooth" });
+        filterAndRender(allSearchInput?.value || "");
+      });
+    }
+    if (backTopBtn && allSection) {
+      backTopBtn.addEventListener("click", () => {
+        allSection.classList.add("d-none");
+        if (topSection) topSection.classList.remove("d-none");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    }
+
+    if (dbOpenBtn && dbModal && canUsePassengerDb) {
+      dbOpenBtn.addEventListener("click", async () => {
+        if (dbSearch) dbSearch.value = "";
+        if (dbResults) dbResults.innerHTML = "";
+        if (dbHint) dbHint.textContent = "Type to search.";
+        dbModal.show();
+        await searchPassengerDb("");
+      });
+    }
+
+    if (payCredit) payCredit.addEventListener("change", syncPayFibState);
+    if (payCash) payCash.addEventListener("change", syncPayFibState);
+    syncPayFibState();
+
+    if (dbSearch && canUsePassengerDb) {
+      dbSearch.addEventListener("input", () => {
+        if (dbTimer) clearTimeout(dbTimer);
+        dbTimer = setTimeout(() => {
+          searchPassengerDb(dbSearch.value.trim());
+        }, 250);
+      });
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", (e) => {
+        const q = e.target.value;
+        if (q && allSection) {
+          allSection.classList.remove("d-none");
+          if (topSection) topSection.classList.add("d-none");
+        }
+        filterAndRender(q);
+      });
+    }
+
+    if (plansMoreBtn) {
+      plansMoreBtn.addEventListener("click", () => {
+        fixedExpanded = true;
+        renderPlansModal();
+      });
+    }
+
+    if (plansCloseBtn) {
+      plansCloseBtn.addEventListener("click", closePlansModal);
+    }
+    if (plansModal) {
+      plansModal.addEventListener("click", (e) => {
+        if (e.target === plansModal) closePlansModal();
+      });
+    }
+
+    planTabBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeTab = btn.dataset.tab || "fixed";
+        planTabBtns.forEach(b => b.classList.toggle("is-active", b === btn));
+        renderPlansModal();
+      });
+    });
+
+    const loadCatalog = async () => {
+      if (!hasAccess) return;
+      try {
+        const r = await fetch("/esim/api/bundles");
+        const data = await r.json();
+        if (r.status >= 400) {
+          return;
+        }
+        bundles = data.items || data.bundles || [];
+        buildCountries(bundles);
+        renderTopDestinations();
+        renderCountries(countriesByName, allGrid);
+      } catch (e) {
+      }
+    };
+
+    (async () => {
+      await loadSettings();
+      await loadCatalog();
+    })();
+  });
+</script>
+{% endblock %}

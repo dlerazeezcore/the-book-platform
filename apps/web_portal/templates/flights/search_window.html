@@ -1,0 +1,951 @@
+{% extends "base.html" %}
+
+{% set hide_search = (results is defined) and (not errors) and (not debug_error) %}
+
+{% block body_class %}flight-page{% if results is not defined %} flight-home{% endif %}{% endblock %}
+
+{% block content %}
+<main class="container-fluid mt-0 mb-4 px-0 search-page{% if results is not defined %} mobile-home{% endif %}">
+  {% if results is not defined %}
+  <section class="mobile-home d-md-none">
+    <div class="mobile-hero">
+      <div class="mobile-hero-top">
+        <div class="mobile-hero-user">
+          {% set _initial = (current_user.username or current_user.email or "U") %}
+          <div class="mobile-avatar">{{ _initial[:1]|upper }}</div>
+          <div class="mobile-greeting">
+            <div class="text-muted small">Hello,</div>
+            <div class="fw-semibold">{{ current_user.username or current_user.email if current_user else "User" }}</div>
+          </div>
+        </div>
+        <button class="mobile-menu-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileNav" aria-controls="mobileNav">
+          Menu
+        </button>
+      </div>
+    </div>
+
+    <div class="mobile-services">
+      <button class="svc-card" type="button" data-icon="H">Hotel</button>
+      <button class="svc-card active" type="button" data-icon="F" data-bs-toggle="offcanvas" data-bs-target="#mobileSearchSheet">Flight</button>
+      <button class="svc-card" type="button" data-icon="V">Visa</button>
+      <button class="svc-card" type="button" data-icon="P">Package</button>
+      <button class="svc-card" type="button" data-icon="E">eSim</button>
+    </div>
+
+    <button class="mobile-find" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSearchSheet">
+      <span class="mobile-find-icon" aria-hidden="true"></span>
+      <span>Find A Flight</span>
+    </button>
+
+    <div class="mobile-section">
+      <div class="mobile-section-title">What We Have</div>
+      <div class="mobile-promo-card">
+        <div class="mobile-promo-title">Plan Less. Travel More</div>
+        <div class="mobile-promo-sub">Complete trips in one package.</div>
+        <div class="mobile-promo-dots">
+          <span></span>
+          <span class="active"></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="mobile-section">
+      <div class="mobile-section-title">Best Destinations for this season</div>
+      <div class="mobile-destination-grid">
+        <div class="mobile-destination-card" data-city="China">China</div>
+        <div class="mobile-destination-card" data-city="Oman">Oman</div>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="search-layout{% if hide_search %} is-search-hidden{% endif %}">
+    <div class="search-panel-col" id="searchPanelAnchor">
+      <div id="searchPanelFixed" class="search-panel-fixed{% if hide_search %} d-none{% endif %}">
+        {% include "flights/search_box.html" %}
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="search-results flex-grow-1" style="min-width: 0;">
+        {% include "flights/search_results.html" %}
+    </div>
+  </div>
+</main>
+
+<button class="btn btn-primary mobile-search-btn d-md-none" id="mobileSearchBtn" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSearchSheet" aria-controls="mobileSearchSheet">
+  Search
+</button>
+
+<div class="offcanvas offcanvas-bottom d-md-none mobile-search-sheet" tabindex="-1" id="mobileSearchSheet" aria-labelledby="mobileSearchLabel">
+  <div class="offcanvas-header">
+    <button type="button" class="btn btn-link text-decoration-none p-0 me-2" data-bs-dismiss="offcanvas" aria-label="Close">Back</button>
+    <div class="fw-semibold" id="mobileSearchLabel">Find A Flight</div>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body" id="mobileSearchBody"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const currentSearch = {{ defaults | tojson }};
+    const seatsEnabled = {{ (seats_enabled if seats_enabled is not none else true) | tojson }};
+    const isMobile = window.matchMedia && window.matchMedia("(max-width: 576px)").matches;
+    const mobileSheetEl = document.getElementById("mobileSearchSheet");
+    const mobileBody = document.getElementById("mobileSearchBody");
+    let mobileSheet = null;
+    if (mobileSheetEl && window.bootstrap && window.bootstrap.Offcanvas) {
+      mobileSheet = window.bootstrap.Offcanvas.getOrCreateInstance(mobileSheetEl);
+    }
+    if (mobileSheetEl) {
+      mobileSheetEl.addEventListener("shown.bs.offcanvas", () => {
+        document.body.classList.add("mobile-search-open");
+      });
+      mobileSheetEl.addEventListener("hidden.bs.offcanvas", () => {
+        document.body.classList.remove("mobile-search-open");
+      });
+    }
+
+    const anchor = document.getElementById("searchPanelAnchor");
+    const fixed = document.getElementById("searchPanelFixed");
+    if (anchor && fixed && !isMobile) {
+      let baseTop = null;
+      const sync = (setTop = false) => {
+        if (fixed.classList.contains("d-none")) return;
+        const r = anchor.getBoundingClientRect();
+        fixed.style.left = r.left + "px";
+        fixed.style.width = r.width + "px";
+        if (setTop || baseTop === null) {
+          baseTop = r.top;
+          fixed.style.top = Math.max(baseTop, 0) + "px";
+        }
+      };
+      sync(true);
+      window.addEventListener("resize", () => sync(true));
+      window.addEventListener("scroll", () => sync(false), { passive: true });
+
+      const showBtn = document.getElementById("showSearchBtn");
+      if (showBtn) {
+        showBtn.addEventListener("click", () => {
+          if (isMobile && mobileSheet) {
+            mobileSheet.show();
+            return;
+          }
+          const layout = document.querySelector(".search-layout");
+          if (layout) layout.classList.remove("is-search-hidden");
+          fixed.classList.remove("d-none");
+          showBtn.classList.add("d-none");
+          sync(true);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      }
+
+      const shiftDateValue = (value, deltaDays) => {
+        if (!value) return value;
+        const parts = String(value).split("-");
+        if (parts.length !== 3) return value;
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+        if (!y || !m || !d) return value;
+        const dt = new Date(Date.UTC(y, m - 1, d));
+        dt.setUTCDate(dt.getUTCDate() + deltaDays);
+        return dt.toISOString().slice(0, 10);
+      };
+
+      const applyDayShift = (target, deltaDays) => {
+        const form = document.querySelector('[data-search-form]');
+        if (!form) return;
+        const dateInput = form.querySelector('input[name="date"]');
+        const returnInput = form.querySelector('input[name="return_date"]');
+        if (target === "depart") {
+          if (!dateInput || !dateInput.value) return;
+          dateInput.value = shiftDateValue(dateInput.value, deltaDays);
+        } else if (target === "return") {
+          if (!returnInput || !returnInput.value) return;
+          returnInput.value = shiftDateValue(returnInput.value, deltaDays);
+        } else {
+          // default: shift depart only (one-way)
+          if (!dateInput || !dateInput.value) return;
+          dateInput.value = shiftDateValue(dateInput.value, deltaDays);
+        }
+
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.submit();
+      };
+
+      const prevBtn = document.getElementById("prevDayBtn");
+      const nextBtn = document.getElementById("nextDayBtn");
+      if (prevBtn) prevBtn.addEventListener("click", () => applyDayShift("depart", -1));
+      if (nextBtn) nextBtn.addEventListener("click", () => applyDayShift("depart", 1));
+
+      const prevDepart = document.getElementById("prevDayDepart");
+      const nextDepart = document.getElementById("nextDayDepart");
+      const prevReturn = document.getElementById("prevDayReturn");
+      const nextReturn = document.getElementById("nextDayReturn");
+      if (prevDepart) prevDepart.addEventListener("click", () => applyDayShift("depart", -1));
+      if (nextDepart) nextDepart.addEventListener("click", () => applyDayShift("depart", 1));
+      if (prevReturn) prevReturn.addEventListener("click", () => applyDayShift("return", -1));
+      if (nextReturn) nextReturn.addEventListener("click", () => applyDayShift("return", 1));
+    }
+
+    // Mobile: move search panel into bottom sheet.
+    if (isMobile && fixed && mobileBody && !mobileBody.contains(fixed)) {
+      fixed.classList.remove("d-none");
+      fixed.style.position = "static";
+      fixed.style.left = "";
+      fixed.style.top = "";
+      fixed.style.width = "";
+      mobileBody.appendChild(fixed);
+      document.body.classList.add("mobile-search-ready");
+    }
+
+
+    // Trip type: enable/disable Return date immediately (no greyed delay)
+    const tripOneWay = document.getElementById("tripOneWay");
+    const tripRoundTrip = document.getElementById("tripRoundTrip");
+    const returnDate = document.getElementById("returnDate");
+
+    const syncReturnDate = () => {
+      if (!returnDate) return;
+      const isRoundTrip = tripRoundTrip && tripRoundTrip.checked;
+      returnDate.disabled = !isRoundTrip;
+      returnDate.required = !!isRoundTrip;
+    };
+
+    [tripOneWay, tripRoundTrip].forEach((el) => {
+      if (!el) return;
+      el.addEventListener("change", syncReturnDate);
+    });
+    syncReturnDate();
+
+    // Ensure passenger defaults are always set immediately (even after "The Book for now" reset navigation)
+    const ensurePassengerDefaults = () => {
+      const adults = document.querySelector('input[name="adults"]');
+      const children = document.querySelector('input[name="children"]');
+      const infants = document.querySelector('input[name="infants"]');
+
+      if (adults && (!adults.value || String(adults.value).trim() === "")) adults.value = "1";
+      if (children && (!children.value || String(children.value).trim() === "")) children.value = "0";
+      if (infants && (!infants.value || String(infants.value).trim() === "")) infants.value = "0";
+    };
+    ensurePassengerDefaults();
+
+    // If the browser restores the page from back/forward cache, values may appear empty—re-apply defaults.
+    window.addEventListener("pageshow", (e) => {
+      if (e.persisted) ensurePassengerDefaults();
+    });
+
+    // Swap From/To on mobile
+    const swapBtn = document.querySelector("[data-swap]");
+    if (swapBtn) {
+      swapBtn.addEventListener("click", () => {
+        const fromInput = document.querySelector('input[name="from_code"]');
+        const toInput = document.querySelector('input[name="to_code"]');
+        if (!fromInput || !toInput) return;
+        const tmp = fromInput.value;
+        fromInput.value = toInput.value;
+        toInput.value = tmp;
+      });
+    }
+
+    // Toggle "with baggage" filter
+    const bagToggle = document.getElementById("toggleBaggageBtn");
+    if (bagToggle) {
+      let enabled = false;
+      bagToggle.addEventListener("click", () => {
+        enabled = !enabled;
+        bagToggle.classList.toggle("btn-secondary", enabled);
+        bagToggle.classList.toggle("btn-outline-secondary", !enabled);
+        bagToggle.textContent = enabled ? "All baggage" : "With baggage";
+
+        document.querySelectorAll(".gf-result[data-has-bag]").forEach((row) => {
+          const hasBag = row.getAttribute("data-has-bag") === "1";
+          if (enabled && !hasBag) row.classList.add("is-hidden");
+          else row.classList.remove("is-hidden");
+        });
+      });
+    }
+
+    // Async seat estimation (do not block initial results)
+    const seatEls = Array.from(document.querySelectorAll("[data-seats-value][data-flight-key]"));
+    if (seatsEnabled && seatEls.length) {
+      const outboundKeys = [];
+      const inboundKeys = [];
+      seatEls.forEach((el) => {
+        const key = el.getAttribute("data-flight-key") || "";
+        if (!key) return;
+        const row = el.closest(".gf-result");
+        const leg = row ? row.getAttribute("data-leg") : "";
+        if (leg === "return") inboundKeys.push(key);
+        else outboundKeys.push(key);
+      });
+
+      const uniqueOut = Array.from(new Set(outboundKeys));
+      const uniqueIn = Array.from(new Set(inboundKeys));
+
+      if (uniqueOut.length || uniqueIn.length) {
+        fetch("/api/seats-estimate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from_code: currentSearch.from_code,
+            to_code: currentSearch.to_code,
+            trip_type: currentSearch.trip_type,
+            date: currentSearch.date,
+            return_date: currentSearch.return_date,
+            cabin: currentSearch.cabin,
+            adults: currentSearch.adults,
+            children: currentSearch.children,
+            infants: currentSearch.infants,
+            keys_out: uniqueOut,
+            keys_in: uniqueIn,
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (!data || data.status !== "ok") return;
+            seatEls.forEach((el) => {
+              const key = el.getAttribute("data-flight-key") || "";
+              if (!key) return;
+              const row = el.closest(".gf-result");
+              const leg = row ? row.getAttribute("data-leg") : "";
+              const seats =
+                leg === "return"
+                  ? data.seats_in && data.seats_in[key]
+                  : data.seats_out && data.seats_out[key];
+              if (seats !== undefined && seats !== null) {
+                el.textContent = seats;
+              }
+            });
+          })
+          .catch(() => {});
+      }
+    }
+
+
+// ------------------------------
+// Flight selection UX
+// ------------------------------
+
+const getTripType = () => {
+  const el = document.querySelector('input[name="trip_type"]:checked');
+  return el ? el.value : "oneway";
+};
+
+const footer = document.getElementById("selectionFooter");
+const totalEl = document.getElementById("selectionTotal");
+const breakdownToggle = document.getElementById("toggleBreakdown");
+const breakdownPanel = document.getElementById("selectionBreakdown");
+const selectionFareEl = document.getElementById("selectionFare");
+const selectionTaxEl = document.getElementById("selectionTax");
+const selectionCommissionEl = document.getElementById("selectionCommission");
+const selectionTotalAdjEl = document.getElementById("selectionTotalAdjusted");
+
+const pickPrice = (itinerary) => {
+  if (!itinerary) return { ccy: "", amt: "" };
+
+  // Standard (one-way) display fields.
+  const ccy =
+    itinerary.total_currency ||
+    itinerary.currency ||
+    "";
+
+  const amt =
+    itinerary.total_amount ||
+    itinerary.amount ||
+    "";
+
+  return { ccy, amt };
+};
+
+const getByPath = (obj, path) => {
+  try {
+    return path.split(".").reduce((acc, k) => (acc && acc[k] != null ? acc[k] : null), obj);
+  } catch {
+    return null;
+  }
+};
+
+const firstNonEmpty = (obj, paths) => {
+  for (const p of paths) {
+    const v = getByPath(obj, p);
+    if (v === 0) return v;
+    if (v !== null && v !== undefined && String(v).trim() !== "") return v;
+  }
+  return null;
+};
+
+const normalizeAmt = (amt) => {
+  if (amt === null || amt === undefined) return "";
+  if (typeof amt === "number") return amt.toLocaleString("en-US");
+  return String(amt).trim();
+};
+
+const formatPriceObj = ({ ccy, amt }) => {
+  const a = normalizeAmt(amt);
+  if (!ccy && !a) return "—";
+  return `${ccy} ${a}`.trim();
+};
+
+const formatPrice = (itinerary) => {
+  const { ccy, amt } = pickPrice(itinerary);
+  return formatPriceObj({ ccy, amt });
+};
+
+// Parse an amount into a comparable number (handles "106,920", "106920", etc.).
+const parseAmtNumber = (amt) => {
+  if (amt === null || amt === undefined) return null;
+  if (typeof amt === "number") return Number.isFinite(amt) ? amt : null;
+  const s = String(amt).trim();
+  if (!s) return null;
+  const cleaned = s.replace(/[^0-9.\-]/g, "");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+};
+
+// ------------------------------
+// Pricing rules (commission/markup) for flights
+// ------------------------------
+const COMMISSION_RULES = {{ (billing_user.commission if billing_user else []) | tojson }};
+const MARKUP_RULES = [];
+
+const normalizeRules = (rules) => {
+  if (!Array.isArray(rules)) return [];
+  return rules.filter((r) => r && typeof r === "object" && (r.service || "flight") === "flight");
+};
+
+const FLIGHT_COMMISSION_RULES = normalizeRules(COMMISSION_RULES);
+const FLIGHT_MARKUP_RULES = [];
+
+const currencyPaths = [
+  "total_currency",
+  "currency",
+  "fare_currency",
+  "base_currency",
+  "tax_currency",
+  "pricing.currency",
+  "pricing.total_currency",
+  "pricing.base_currency",
+  "ticketing.total_currency",
+  "ticketing.currency",
+  "ticketing.base_currency",
+  "ticketing.fare_currency",
+];
+
+const farePaths = [
+  "fare_amount",
+  "fare",
+  "base_fare",
+  "base_amount",
+  "base",
+  "pricing.fare_amount",
+  "pricing.fare",
+  "pricing.base_fare",
+  "pricing.base_amount",
+  "pricing.base",
+  "ticketing.fare_amount",
+  "ticketing.fare",
+  "ticketing.base_fare",
+  "ticketing.base_amount",
+  "ticketing.base",
+  "ticketing.totalFare",
+  "ticketing.fareAmount",
+];
+
+const taxPaths = [
+  "tax_amount",
+  "tax",
+  "taxes",
+  "tax_total",
+  "pricing.tax_amount",
+  "pricing.tax",
+  "pricing.taxes",
+  "ticketing.tax_amount",
+  "ticketing.tax",
+  "ticketing.taxes",
+  "ticketing.totalTax",
+  "ticketing.taxAmount",
+];
+
+const formatAmount = (n) => {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  const hasDecimals = Math.round(n) !== n;
+  return n.toLocaleString("en-US", { minimumFractionDigits: hasDecimals ? 2 : 0, maximumFractionDigits: 2 });
+};
+
+const formatMoney = (ccy, n) => {
+  const amt = formatAmount(n);
+  if (amt === "—") return "—";
+  return ccy ? `${ccy} ${amt}` : amt;
+};
+
+const formatSignedMoney = (ccy, n, sign = "+") => {
+  if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+  const absVal = Math.abs(n);
+  const base = formatMoney(ccy, absVal);
+  if (base === "—") return base;
+  return sign === "-" ? `- ${base}` : base;
+};
+
+const getCurrency = (itinerary, fallbackCcy) => {
+  return firstNonEmpty(itinerary, currencyPaths) || fallbackCcy || "";
+};
+
+const getAirlineCode = (itinerary, fallbackCode) => {
+  const code =
+    (itinerary && itinerary.segments && itinerary.segments[0] && itinerary.segments[0].airline) ||
+    fallbackCode ||
+    "";
+  return String(code || "").toUpperCase();
+};
+
+const sumRuleAmounts = (rules, airlineCode, fareAmt, totalAmt) => {
+  if (!airlineCode) return 0;
+  let sum = 0;
+  for (const r of rules) {
+    if (!r || typeof r !== "object") continue;
+    const code = String(r.airline_code || "").toUpperCase();
+    if (!code || code !== airlineCode) continue;
+
+    const raw = parseFloat(r.amount);
+    if (!Number.isFinite(raw) || raw <= 0) continue;
+
+    if ((r.type || "").toLowerCase() === "percent") {
+      const base = fareAmt !== null && fareAmt !== undefined ? fareAmt : (totalAmt || 0);
+      sum += (base * raw) / 100;
+    } else {
+      sum += raw;
+    }
+  }
+  return sum;
+};
+
+const computeBreakdown = (itinerary, opts = {}) => {
+  if (!itinerary) {
+    return { ccy: "", fare: null, tax: null, commission: 0, markup: 0, total: null, baseTotal: null };
+  }
+
+  const preferRoundtrip = !!opts.preferRoundtrip;
+  const totalObj = preferRoundtrip ? (pickRoundtripTotal(itinerary) || pickPrice(itinerary)) : pickPrice(itinerary);
+
+  let totalAmt = parseAmtNumber(totalObj.amt);
+  const fallbackTotal = parseAmtNumber(opts.fallbackTotal || itinerary._ui_total);
+  if (totalAmt === null && fallbackTotal !== null) {
+    totalAmt = fallbackTotal;
+  }
+  let fareAmt = parseAmtNumber(firstNonEmpty(itinerary, farePaths));
+  let taxAmt = parseAmtNumber(firstNonEmpty(itinerary, taxPaths));
+
+  if (totalAmt === null && (fareAmt !== null || taxAmt !== null)) {
+    totalAmt = (fareAmt || 0) + (taxAmt || 0);
+  }
+
+  if (fareAmt === null && totalAmt !== null && taxAmt !== null) {
+    fareAmt = Math.max(totalAmt - taxAmt, 0);
+  }
+  if (taxAmt === null && totalAmt !== null && fareAmt !== null) {
+    taxAmt = Math.max(totalAmt - fareAmt, 0);
+  }
+  if (fareAmt === null && totalAmt !== null) {
+    fareAmt = totalAmt;
+  }
+  if (taxAmt === null) {
+    taxAmt = 0;
+  }
+
+  const ccy = getCurrency(itinerary, opts.fallbackCcy || itinerary._ui_ccy || totalObj.ccy || "");
+  const airlineCode = getAirlineCode(itinerary, opts.airlineCode);
+
+  const commission = sumRuleAmounts(FLIGHT_COMMISSION_RULES, airlineCode, fareAmt, totalAmt || 0);
+  const markup = 0;
+
+  const baseTotal = totalAmt !== null ? totalAmt : ((fareAmt || 0) + (taxAmt || 0));
+  const total = (baseTotal || 0) - commission;
+
+  return {
+    ccy,
+    fare: fareAmt,
+    tax: taxAmt,
+    commission,
+    markup,
+    total,
+    baseTotal,
+  };
+};
+
+// Roundtrip totals often come in separate fields (sometimes nested). We ONLY treat these as the ticket total.
+const pickRoundtripTotal = (itinerary) => {
+  if (!itinerary) return null;
+
+  const amountPaths = [
+    "roundtrip_total_amount",
+    "roundtrip_total",
+    "roundtrip_amount",
+    "roundtrip_price",
+    "rt_total_amount",
+    "rt_total",
+    "rt_amount",
+    "rt_price",
+    "roundtripTotalAmount",
+    "roundtripTotal",
+    "roundtripAmount",
+    "roundtripPrice",
+    "rtTotalAmount",
+    "rtTotal",
+    "rtAmount",
+    "rtPrice",
+    "pricing.roundtrip.total_amount",
+    "pricing.roundtrip.total",
+    "pricing.roundtrip.amount",
+    "pricing.roundtrip.price",
+    "pricing.total_roundtrip",
+    "pricing.totalRoundtrip",
+    "ticketing.roundtrip_total_amount",
+    "ticketing.roundtrip_total",
+    "ticketing.roundtrip_amount",
+    "ticketing.roundtrip_price",
+    "ticketing.rt_total_amount",
+    "ticketing.rt_total",
+    "ticketing.rt_amount",
+    "ticketing.rt_price",
+    "ticketing.total_amount",
+    "ticketing.totalAmount",
+    "ticketing.total",
+    "ticketing.grand_total",
+    "ticketing.grandTotal",
+    "ticketing.totalFare",
+    "ticketing.totalPrice",
+  ];
+
+  const currencyPaths = [
+    "roundtrip_total_currency",
+    "roundtrip_currency",
+    "rt_currency",
+    "roundtripTotalCurrency",
+    "rtCurrency",
+    "pricing.roundtrip.currency",
+    "pricing.roundtrip.total_currency",
+    "ticketing.roundtrip_total_currency",
+    "ticketing.roundtrip_currency",
+    "ticketing.rt_currency",
+    "ticketing.total_currency",
+    "ticketing.currency",
+    "ticketing.totalCurrency",
+  ];
+
+  const amt = firstNonEmpty(itinerary, amountPaths);
+  if (amt === null) return null;
+
+  const ccy =
+    firstNonEmpty(itinerary, currencyPaths) ||
+    itinerary.total_currency ||
+    itinerary.currency ||
+    "";
+
+  return { ccy, amt };
+};
+
+const collapseHide = (row) => {
+  const head = row ? row.querySelector('.gf-head[data-bs-toggle="collapse"]') : null;
+  const target = head ? head.getAttribute("data-bs-target") : null;
+  if (!target) return;
+  const el = document.querySelector(target);
+  if (!el) return;
+  const inst = bootstrap.Collapse.getInstance(el);
+  if (inst) inst.hide();
+};
+
+const setButtons = (leg, selectedRow) => {
+  document.querySelectorAll(`.gf-select[data-leg="${leg}"]`).forEach((b) => {
+    const row = b.closest(".gf-result");
+    if (selectedRow && row === selectedRow) {
+      b.textContent = "Change flight";
+      b.dataset.mode = "change";
+    } else {
+      b.textContent = "Select flight";
+      b.dataset.mode = "select";
+    }
+  });
+};
+
+const showOnlySelected = (leg, selectedRow) => {
+  document.querySelectorAll(`.gf-result[data-leg="${leg}"]`).forEach((row) => {
+    if (row === selectedRow) {
+      row.classList.remove("is-hidden");
+      row.classList.add("is-selected");
+    } else {
+      collapseHide(row);
+      row.classList.add("is-hidden");
+      row.classList.remove("is-selected");
+    }
+  });
+  setButtons(leg, selectedRow);
+};
+
+const showAll = (leg) => {
+  document.querySelectorAll(`.gf-result[data-leg="${leg}"]`).forEach((row) => {
+    row.classList.remove("is-hidden");
+    row.classList.remove("is-selected");
+  });
+  setButtons(leg, null);
+};
+
+const filterReturnByAirline = (airlineCode) => {
+  const returnRows = document.querySelectorAll('.gf-result[data-leg="return"]');
+  returnRows.forEach((row) => {
+    const code = (row.dataset.airline || "").toUpperCase();
+    if (!airlineCode) {
+      row.classList.remove("is-hidden");
+      return;
+    }
+    if (code === airlineCode.toUpperCase()) {
+      row.classList.remove("is-hidden");
+    } else {
+      collapseHide(row);
+      row.classList.add("is-hidden");
+      row.classList.remove("is-selected");
+    }
+  });
+};
+
+let selectedOutbound = null;
+let selectedReturn = null;
+
+const updateFooter = () => {
+  if (!footer || !totalEl) return;
+
+  const tt = getTripType();
+
+  // One-way: show after outbound selection.
+  if (tt !== "roundtrip") {
+    if (selectedOutbound) {
+      const breakdown = computeBreakdown(selectedOutbound, {
+        preferRoundtrip: false,
+        fallbackTotal: selectedOutbound._ui_total,
+        fallbackCcy: selectedOutbound._ui_ccy,
+      });
+      if (Number.isFinite(breakdown.total)) {
+        totalEl.textContent = formatMoney(breakdown.ccy, breakdown.total);
+      } else {
+        totalEl.textContent = formatPrice(selectedOutbound);
+      }
+      footer.classList.remove("d-none");
+    } else {
+      footer.classList.add("d-none");
+      totalEl.textContent = "—";
+    }
+    updateSelectionBreakdown();
+    return;
+  }
+
+  // Roundtrip: show after BOTH legs, and use the ROUNDTRIP ticket total (never the one-way return fare).
+  if (selectedOutbound && selectedReturn) {
+    const airline = getAirlineCode(selectedOutbound) || getAirlineCode(selectedReturn);
+    const baseItin = selectedReturn || selectedOutbound;
+    const breakdown = computeBreakdown(baseItin, {
+      preferRoundtrip: true,
+      airlineCode: airline,
+      fallbackTotal: baseItin._ui_total,
+      fallbackCcy: baseItin._ui_ccy,
+    });
+    if (Number.isFinite(breakdown.total)) {
+      totalEl.textContent = formatMoney(breakdown.ccy, breakdown.total);
+    } else {
+      const rt =
+        pickRoundtripTotal(selectedReturn) ||
+        pickRoundtripTotal(selectedOutbound) ||
+        pickPrice(selectedReturn) ||
+        pickPrice(selectedOutbound) ||
+        { ccy: "", amt: "" };
+      totalEl.textContent = formatPriceObj(rt);
+    }
+    footer.classList.remove("d-none");
+  } else {
+    footer.classList.add("d-none");
+    totalEl.textContent = "—";
+  }
+  updateSelectionBreakdown();
+};
+
+const setBreakdownOpen = (open) => {
+  if (!breakdownPanel || !breakdownToggle) return;
+  if (open) {
+    breakdownPanel.classList.remove("d-none");
+    breakdownToggle.classList.add("is-open");
+  } else {
+    breakdownPanel.classList.add("d-none");
+    breakdownToggle.classList.remove("is-open");
+  }
+};
+
+const updateSelectionBreakdown = () => {
+  if (!footer || !totalEl) return;
+  const tt = getTripType();
+  const hasSelection = tt === "roundtrip" ? (selectedOutbound && selectedReturn) : !!selectedOutbound;
+
+  if (!hasSelection) {
+    if (breakdownToggle) breakdownToggle.disabled = true;
+    if (selectionFareEl) selectionFareEl.textContent = "—";
+    if (selectionTaxEl) selectionTaxEl.textContent = "—";
+    if (selectionCommissionEl) selectionCommissionEl.textContent = "—";
+    if (selectionMarkupEl) selectionMarkupEl.textContent = "—";
+    if (selectionTotalAdjEl) selectionTotalAdjEl.textContent = "—";
+    setBreakdownOpen(false);
+    return;
+  }
+
+  const airline = getAirlineCode(selectedOutbound) || getAirlineCode(selectedReturn);
+  const baseItin = tt === "roundtrip" ? (selectedReturn || selectedOutbound) : selectedOutbound;
+  const breakdown = computeBreakdown(baseItin, {
+    preferRoundtrip: tt === "roundtrip",
+    airlineCode: airline,
+    fallbackTotal: (baseItin && baseItin._ui_total) || (totalEl ? totalEl.textContent : ""),
+    fallbackCcy: baseItin && baseItin._ui_ccy,
+  });
+
+  if (selectionFareEl) selectionFareEl.textContent = formatMoney(breakdown.ccy, breakdown.fare);
+  if (selectionTaxEl) selectionTaxEl.textContent = formatMoney(breakdown.ccy, breakdown.tax);
+  if (selectionCommissionEl) selectionCommissionEl.textContent = formatSignedMoney(breakdown.ccy, breakdown.commission || 0, "-");
+  if (selectionTotalAdjEl) {
+    if (Number.isFinite(breakdown.total)) selectionTotalAdjEl.textContent = formatMoney(breakdown.ccy, breakdown.total);
+    else selectionTotalAdjEl.textContent = "—";
+  }
+
+  if (breakdownToggle) breakdownToggle.disabled = false;
+};
+
+if (breakdownToggle) {
+  breakdownToggle.addEventListener("click", () => {
+    if (breakdownToggle.disabled) return;
+    const isClosed = !breakdownPanel || breakdownPanel.classList.contains("d-none");
+    setBreakdownOpen(isClosed);
+  });
+}
+
+
+// ------------------------------
+// Continue -> Passenger Info (new window)
+// ------------------------------
+const continueBtn = document.getElementById("continueBtn");
+if (continueBtn) {
+  continueBtn.addEventListener("click", () => {
+    const tt = getTripType();
+
+    if (tt === "roundtrip") {
+      if (!selectedOutbound || !selectedReturn) return;
+    } else {
+      if (!selectedOutbound) return;
+    }
+
+    const adultsEl = document.querySelector('input[name="adults"]');
+    const childrenEl = document.querySelector('input[name="children"]');
+    const infantsEl = document.querySelector('input[name="infants"]');
+
+    const adults = parseInt((adultsEl && adultsEl.value) ? adultsEl.value : "1", 10) || 0;
+    const children = parseInt((childrenEl && childrenEl.value) ? childrenEl.value : "0", 10) || 0;
+    const infants = parseInt((infantsEl && infantsEl.value) ? infantsEl.value : "0", 10) || 0;
+
+    // Store booking selection (shared for the new window)
+    const KEY = "booking_selection_v1";
+    const totalText = (totalEl && totalEl.textContent) ? totalEl.textContent.trim() : "";
+
+    const payload = {
+      trip_type: tt,
+      pax: { adults, children, infants },
+      selectedOutbound,
+      selectedReturn,
+      total_price: totalText
+    };
+
+    try {
+      localStorage.setItem(KEY, JSON.stringify(payload));
+    } catch {}
+
+    // Open passenger info in a new window/tab (not a popup modal)
+    window.location.href = "/passenger-info";
+  });
+}
+
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".gf-select");
+  if (!btn) return;
+
+  // Prevent toggling the row details when clicking Select/Change.
+  e.preventDefault();
+  e.stopPropagation();
+
+  const leg = btn.dataset.leg;
+  const row = btn.closest(".gf-result");
+  const mode = btn.dataset.mode || "select";
+
+  if (!leg || !row) return;
+
+  if (mode === "change") {
+    if (leg === "outbound") {
+      selectedOutbound = null;
+      selectedReturn = null;
+      showAll("outbound");
+      showAll("return");
+      filterReturnByAirline(null);
+    } else {
+      selectedReturn = null;
+      showAll("return");
+      if (selectedOutbound) {
+        const airline = (selectedOutbound.segments && selectedOutbound.segments[0] && selectedOutbound.segments[0].airline) || null;
+        filterReturnByAirline(airline);
+      }
+    }
+    updateFooter();
+    return;
+  }
+
+  // SELECT
+  let itin = null;
+  try {
+    itin = JSON.parse(btn.getAttribute("data-itinerary") || "null");
+  } catch {
+    itin = null;
+  }
+  if (itin && row) {
+    const rowTotal = row.querySelector("[data-display-total]");
+    const rowCcy = row.querySelector(".gf-ccy");
+    itin._ui_total = rowTotal ? rowTotal.textContent || "" : "";
+    itin._ui_ccy = rowCcy ? rowCcy.textContent || "" : "";
+    itin._ui_airline = row.dataset.airline || itin._ui_airline || "";
+  }
+
+  if (leg === "outbound") {
+    selectedOutbound = itin;
+    showOnlySelected("outbound", row);
+
+    if (getTripType() === "roundtrip") {
+      const airline = (itin && itin.segments && itin.segments[0] && itin.segments[0].airline) || row.dataset.airline || null;
+      // Reset return selection and filter to the chosen airline.
+      selectedReturn = null;
+      showAll("return");
+      filterReturnByAirline(airline);
+    }
+  } else if (leg === "return") {
+    selectedReturn = itin;
+    showOnlySelected("return", row);
+  }
+
+  updateFooter();
+});
+
+// Initial button state + footer
+setButtons("outbound", null);
+setButtons("return", null);
+updateFooter();
+
+  });
+</script>
+{% endblock %}

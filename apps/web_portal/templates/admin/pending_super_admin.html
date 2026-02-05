@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Pending bookings</div>
+              <div class="text-muted small">Bookings waiting for manual ticketing.</div>
+            </div>
+          </div>
+
+          {% if pending_items and pending_items|length %}
+          <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th style="width: 44px;"></th>
+                  <th style="min-width: 140px;">Created</th>
+                  <th style="min-width: 160px;">Passenger</th>
+                  <th style="min-width: 120px;">Airline</th>
+                  <th style="min-width: 90px;">From</th>
+                  <th style="min-width: 90px;">To</th>
+                  <th style="min-width: 110px;">Price</th>
+                  <th style="min-width: 110px;">Provider</th>
+                  <th style="min-width: 140px;">Requested by</th>
+                  <th style="min-width: 160px;">Company admin</th>
+                  <th style="min-width: 220px;">Reason</th>
+                  <th style="min-width: 220px;">Complete</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for it in pending_items %}
+                {% set tx = it.tx or {} %}
+                <tr>
+                  <td>
+                    <button class="btn btn-sm btn-outline-secondary" type="button"
+                      data-bs-toggle="collapse" data-bs-target="#pd{{ it.id }}"
+                      aria-expanded="false" aria-controls="pd{{ it.id }}">
+                      ▶
+                    </button>
+                  </td>
+                  <td class="small text-muted">{{ it.created_at }}</td>
+                  <td>{{ it.passenger }}</td>
+                  <td>{{ it.airline }}</td>
+                  <td>{{ it.from }}</td>
+                  <td>{{ it.to }}</td>
+                  <td>
+                    {% if it.price is not none %}
+                      {{ it.price }} {{ it.currency }}
+                    {% endif %}
+                  </td>
+                  <td>{{ it.provider_id }}</td>
+                  <td>{{ it.requested_by_name or it.requested_by_user_id }}</td>
+                  <td>{{ it.company_admin_name or it.company_admin_id }}</td>
+                  <td>{{ it.reason }}</td>
+                  <td>
+                    <form class="d-flex flex-wrap gap-2" method="post" action="{{ request.url_for('pending_complete', pending_id=it.id) }}">
+                      <input class="form-control form-control-sm" name="ticket_number" placeholder="Ticket number (PNR)" style="max-width: 160px;">
+                      <input class="form-control form-control-sm" name="booking_code" placeholder="Booking code" style="max-width: 140px;">
+                      <button class="btn btn-sm btn-success" type="submit">Submit</button>
+                    </form>
+                  </td>
+                </tr>
+
+                <tr class="collapse" id="pd{{ it.id }}">
+                  <td colspan="12">
+                    <div class="p-2">
+                      <div class="small text-muted mb-2">Details</div>
+                      <div class="row g-2">
+                        <div class="col-12 col-md-6 col-lg-4">
+                          <div class="small"><span class="text-muted">Transaction ID:</span> {{ tx.id }}</div>
+                          <div class="small"><span class="text-muted">Status:</span> {{ tx.status }}</div>
+                          <div class="small"><span class="text-muted">By:</span> {{ tx.by }}</div>
+                          <div class="small"><span class="text-muted">Company Admin ID:</span> {{ tx.company_admin_id }}</div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-4">
+                          <div class="small"><span class="text-muted">PNR/Ticket:</span> {{ tx.pnr }}</div>
+                          <div class="small"><span class="text-muted">Booking code:</span> {{ tx.booking_code }}</div>
+                          <div class="small"><span class="text-muted">Provider:</span> {{ tx.provider_id }}</div>
+                          <div class="small"><span class="text-muted">Payment:</span> {{ (tx.details or {}).get('payment_method','') }}</div>
+                        </div>
+                        <div class="col-12 col-md-6 col-lg-4">
+                          <div class="small"><span class="text-muted">Date:</span> {{ tx.date }}</div>
+                          <div class="small"><span class="text-muted">From:</span> {{ tx.from }}</div>
+                          <div class="small"><span class="text-muted">To:</span> {{ tx.to }}</div>
+                          <div class="small"><span class="text-muted">Airline:</span> {{ tx.airline }}</div>
+                        </div>
+                      </div>
+
+                      {% if tx.details %}
+                      <div class="mt-2">
+                        <details>
+                          <summary class="small text-muted">All details</summary>
+                          <pre class="small mb-0">{{ tx.details | tojson(indent=2) }}</pre>
+                        </details>
+                      </div>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="mt-3">
+            <div class="empty">
+              <div class="fw-semibold">No pending bookings yet.</div>
+              <div class="text-muted small">When a booking is created offline, it will appear here for review.</div>
+            </div>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}

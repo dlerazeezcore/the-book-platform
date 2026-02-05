@@ -1,0 +1,35 @@
+{
+  "providers": {
+    "OTA": {
+      "availability_enabled": true,
+      "ticketing_mode": "full",
+      "filters_enabled": false,
+      "blocked_suppliers": [],
+      "blocked_airlines": [],
+      "ticketing_schedule": {
+        "enabled": false,
+        "timezone": "Asia/Baghdad",
+        "rules": [
+          {
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6
+            ],
+            "start": "00:00",
+            "end": "23:59"
+          }
+        ]
+      },
+      "allowed_suppliers": [],
+      "allowed_airlines": [
+        "IA"
+      ],
+      "seats_estimation_enabled": false
+    }
+  }
+}

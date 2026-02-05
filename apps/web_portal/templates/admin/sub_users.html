@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <div>
+          <div class="h5 mb-1">Sub users</div>
+          <div class="text-muted small">Edit, disable, delete, and filter sub users by company.</div>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="{{ request.url_for('admin') }}">Back</a>
+      </div>
+
+      <hr class="my-3"/>
+
+      <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-5">
+          <label class="form-label small text-muted mb-1">Filter by company</label>
+          <select class="form-select" name="company" onchange="this.form.submit()">
+            <option value="">All companies</option>
+            {% for c in companies %}
+              <option value="{{ c.id }}" {% if company_filter == c.id %}selected{% endif %}>{{ c.company_name }} ({{ c.username }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% if edit_user %}
+          <input type="hidden" name="edit" value="{{ edit_user.id }}"/>
+        {% endif %}
+        <div class="col-md-2">
+          <button class="btn btn-dark" type="submit">Apply</button>
+        </div>
+      </form>
+
+      {% if edit_user %}
+        <div class="card border-0 shadow-sm mt-4">
+          <div class="card-body">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <div class="fw-semibold">Edit sub user</div>
+                <div class="text-muted small">{{ (edit_user.first_name or '') ~ ' ' ~ (edit_user.last_name or '') }} · {{ edit_user.username }}</div>
+              </div>
+              <a class="btn btn-sm btn-outline-secondary" href="{{ request.url_for('admin_sub_users') }}{% if company_filter %}?company={{ company_filter }}{% endif %}">Close</a>
+            </div>
+
+            <form class="row g-2 mt-3" method="post" action="{{ request.url_for('admin_sub_user_update', sub_id=edit_user.id) }}">
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">First name</label>
+                <input class="form-control" name="first_name" value="{{ edit_user.first_name or '' }}" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Last name</label>
+                <input class="form-control" name="last_name" value="{{ edit_user.last_name or '' }}" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Position</label>
+                <input class="form-control" name="position" value="{{ edit_user.position or '' }}">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Username</label>
+                <input class="form-control" name="username" value="{{ edit_user.username or '' }}" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Email</label>
+                <input class="form-control" name="email" type="email" value="{{ edit_user.email or '' }}">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">New password (optional)</label>
+                <input class="form-control" name="new_password" type="password" placeholder="Leave blank to keep current">
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Status</label>
+                <select class="form-select" name="active">
+                  <option value="1" {% if edit_user.active %}selected{% endif %}>Active</option>
+                  <option value="0" {% if not edit_user.active %}selected{% endif %}>Blocked</option>
+                </select>
+              </div>
+
+              <div class="col-12">
+                <button class="btn btn-dark" type="submit">Save changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="mt-4">
+        <div class="fw-semibold">Sub user list</div>
+        <div class="table-responsive mt-2">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Status</th>
+                <th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in subusers %}
+                <tr>
+                  <td>{{ s.company_name or '-' }}</td>
+                  <td>{{ (s.first_name or '') ~ ' ' ~ (s.last_name or '') }}</td>
+                  <td>{{ s.position or '' }}</td>
+                  <td>{{ s.username or '' }}</td>
+                  <td>{{ s.email or '' }}</td>
+                  <td>
+                    {% if s.active == False %}
+                      <span class="badge text-bg-secondary">Inactive</span>
+                    {% else %}
+                      <span class="badge text-bg-success">Active</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <div class="d-inline-flex gap-2">
+                      <a class="btn btn-sm btn-outline-dark" href="{{ request.url_for('admin_sub_users') }}?edit={{ s.id }}{% if company_filter %}&company={{ company_filter }}{% endif %}">Edit</a>
+                      <form method="post" action="{{ request.url_for('admin_sub_user_toggle', sub_id=s.id) }}">
+                        {% if s.active %}
+                          <button class="btn btn-sm btn-outline-danger" type="submit">Disable</button>
+                        {% else %}
+                          <button class="btn btn-sm btn-outline-success" type="submit">Enable</button>
+                        {% endif %}
+                      </form>
+                      <form method="post" action="{{ request.url_for('admin_sub_user_delete', sub_id=s.id) }}" onsubmit="return confirm('Delete this sub user?');">
+                        <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              {% else %}
+                <tr><td colspan="7" class="text-muted">No sub users found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

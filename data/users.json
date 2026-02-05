@@ -1,0 +1,161 @@
+{
+  "users": [
+    {
+      "id": "1f21b9694f3c44b4b9a6d6b3607fda4a",
+      "type": "admin",
+      "company_name": "Corevia Consultants",
+      "username": "dler",
+      "email": "dler@corevia-consultants.com",
+      "password": "StrongPass123",
+      "phone": "",
+      "contact": "",
+      "role": "super_admin",
+      "active": true,
+      "credit": 0,
+      "cash": 0,
+      "preferred_payment": "cash",
+      "apis": [],
+      "employees": [],
+      "commission": [],
+      "markup": [],
+      "vendor_services": [],
+      "vendor_visa_prices": [],
+      "vendor_name": "Corevia Consultants"
+    },
+    {
+      "id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "type": "user",
+      "company_name": "Peak Travel",
+      "username": "dlerazeez",
+      "email": "dler6992@gmail.com",
+      "phone": "9647507343635",
+      "contact": "9647507343635",
+      "password": "1234",
+      "role": "user",
+      "active": true,
+      "credit": 9669077,
+      "cash": 0,
+      "preferred_payment": "cash",
+      "apis": [
+        "ota"
+      ],
+      "employees": [],
+      "commission": [
+        {
+          "id": "f342f50c2a5e48bf9cc43ce115b5dc35",
+          "service": "flight",
+          "airline_code": "IA",
+          "airline_name": "Iraqi Airways",
+          "type": "percent",
+          "amount": 6.0,
+          "basis": "fare",
+          "created_at": "2026-02-04T08:16:43.772690Z"
+        }
+      ],
+      "markup": [],
+      "audit": [
+        {
+          "ts": "2026-02-02T17:27:38.202845Z",
+          "action": "balance",
+          "kind": "credit",
+          "direction": "increase",
+          "amount": 10000.0,
+          "reference": "",
+          "notes": ""
+        },
+        {
+          "ts": "2026-02-02T17:31:09.975532Z",
+          "action": "balance",
+          "kind": "credit",
+          "direction": "increase",
+          "amount": 200000.0,
+          "reference": "",
+          "notes": ""
+        },
+        {
+          "ts": "2026-02-03T09:25:15.833617Z",
+          "action": "balance",
+          "kind": "credit",
+          "direction": "increase",
+          "amount": 1000000.0,
+          "reference": "",
+          "notes": ""
+        },
+        {
+          "ts": "2026-02-03T14:47:30.701406Z",
+          "action": "balance",
+          "kind": "credit",
+          "direction": "increase",
+          "amount": 10000000.0,
+          "reference": "",
+          "notes": ""
+        },
+        {
+          "ts": "2026-02-04T08:52:20.405330Z",
+          "action": "payment_hold",
+          "kind": "credit",
+          "amount": 98737.0,
+          "notes": "Credit payment queued for manual ticketing."
+        },
+        {
+          "ts": "2026-02-04T11:58:39.528640Z",
+          "action": "payment_hold",
+          "kind": "credit",
+          "amount": 98737.0,
+          "notes": "Credit payment queued for manual ticketing."
+        },
+        {
+          "ts": "2026-02-04T11:59:43.772506Z",
+          "action": "payment_hold",
+          "kind": "credit",
+          "amount": 98737.0,
+          "notes": "Credit payment queued for manual ticketing."
+        }
+      ],
+      "vendor_services": [
+        "visa"
+      ],
+      "vendor_visa_prices": [],
+      "vendor_name": "Peak Travel"
+    },
+    {
+      "id": "12e976e2f044452e825fef7bde4351d3",
+      "type": "sub_user",
+      "company_name": "Peak Travel",
+      "first_name": "Mohammed",
+      "last_name": "Taha",
+      "position": "Marketing",
+      "username": "mrahman",
+      "email": "a@a.com",
+      "password": "1234",
+      "role": "sub_user",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "active": true,
+      "credit": 0,
+      "cash": 0,
+      "preferred_payment": "cash",
+      "apis": [
+        "ota"
+      ],
+      "phone": "",
+      "contact": "",
+      "employees": [],
+      "commission": [
+        {
+          "id": "f342f50c2a5e48bf9cc43ce115b5dc35",
+          "service": "flight",
+          "airline_code": "IA",
+          "airline_name": "Iraqi Airways",
+          "type": "percent",
+          "amount": 6.0,
+          "basis": "fare",
+          "created_at": "2026-02-04T08:16:43.772690Z"
+        }
+      ],
+      "markup": [],
+      "vendor_services": [],
+      "vendor_visa_prices": [],
+      "vendor_name": "Peak Travel"
+    }
+  ]
+}

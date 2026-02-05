@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Transactions</div>
+              <div class="text-muted small">Latest ticket actions and booking references.</div>
+            </div>
+          </div>
+
+          <div class="mt-3" id="txEmpty" class="d-none">
+            <div class="empty">
+              <div class="fw-semibold">No transactions yet.</div>
+              <div class="text-muted small">Issue a ticket to see it here.</div>
+            </div>
+          </div>
+
+          <div class="mt-3 d-none" id="txWrap">
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th style="width: 44px;"></th>
+                    <th style="min-width: 170px;">Date</th>
+                    <th style="min-width: 180px;">Passenger</th>
+                    <th style="min-width: 140px;">By</th>
+                    <th style="min-width: 140px;">Airline</th>
+                    <th style="min-width: 120px;">From</th>
+                    <th style="min-width: 120px;">To</th>
+                    <th style="min-width: 110px;">Price</th>
+                    <th style="min-width: 110px;">Status</th>
+                    <th style="min-width: 180px;">Reference</th>
+                  </tr>
+                </thead>
+                <tbody id="txBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", async () => {
+    const emptyEl = document.getElementById("txEmpty");
+    const wrapEl = document.getElementById("txWrap");
+    const bodyEl = document.getElementById("txBody");
+
+    const esc = (s) => {
+      return String(s || "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    };
+
+    const fmt = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString();
+      } catch { return iso || ""; }
+    };
+
+    let txs = [];
+    try {
+      const r = await fetch("/api/transactions");
+      const t = await r.text();
+      try { txs = JSON.parse(t || "[]"); } catch { txs = []; }
+      if (!r.ok) throw new Error(t || ("HTTP " + r.status));
+    } catch (e) {
+      // Fallback: empty (do not break page)
+      txs = [];
+    }
+
+    if (!Array.isArray(txs) || txs.length === 0) {
+      if (emptyEl) emptyEl.classList.remove("d-none");
+      return;
+    }
+
+    if (wrapEl) wrapEl.classList.remove("d-none");
+
+    bodyEl.innerHTML = txs.map((t) => {
+      const passenger = (t.first_name || "") + " " + (t.last_name || "");
+      const by = t.by || t.by_name || t.by_user || "";
+      const st = String(t.status || "").toLowerCase();
+
+      const det = (t.details && typeof t.details === "object") ? t.details : {};
+
+      const airline = t.airline || det.airline || "";
+      const fromC = t.from || det.from || "";
+      const toC = t.to || det.to || "";
+
+      const priceV = (t.price ?? det.price);
+      const cur = t.currency || det.currency || "";
+      const price = (priceV === null || priceV === undefined || priceV === "") ? "" : (String(priceV) + (cur ? (" " + cur) : ""));
+
+      let statusBadge = "<span class='badge text-bg-danger'>Failed</span>";
+      if (st === "issued" || st === "successful" || st === "success") statusBadge = "<span class='badge text-bg-success'>Successful</span>";
+      else if (st === "pending") statusBadge = "<span class='badge text-bg-warning'>Pending</span>";
+
+      const ref = t.pnr || t.booking_code || t.pending_id || "—";
+
+      const rowId = String(t.id || ref || Math.random()).replaceAll(" ", "_");
+      const detailsId = "txd_" + rowId;
+
+      return `
+        <tr>
+          <td>
+            <button class="btn btn-sm btn-outline-secondary tx-toggle" type="button" data-target="${esc(detailsId)}" aria-expanded="false" title="Details">
+              ▶
+            </button>
+          </td>
+          <td>${esc(fmt(t.ts))}</td>
+          <td class="fw-semibold">${esc(passenger.trim())}</td>
+          <td>${esc(by)}</td>
+          <td>${esc(airline)}</td>
+          <td>${esc(fromC)}</td>
+          <td>${esc(toC)}</td>
+          <td class="mono">${esc(price)}</td>
+          <td>${statusBadge}</td>
+          <td class="mono">${esc(ref)}</td>
+        </tr>
+        <tr id="${esc(detailsId)}" class="d-none">
+          <td colspan="10">
+            <div class="p-2">
+              <div class="small text-muted fw-semibold mb-1">Details</div>
+              <div class="row g-2 small">
+                <div class="col-md-3"><span class="text-muted">From:</span> ${esc(fromC)}</div>
+                <div class="col-md-3"><span class="text-muted">To:</span> ${esc(toC)}</div>
+                <div class="col-md-3"><span class="text-muted">Airline:</span> ${esc(airline)}</div>
+                <div class="col-md-3"><span class="text-muted">Price:</span> ${esc(price)}</div>
+                <div class="col-md-3"><span class="text-muted">Flight date:</span> ${esc(det.date || "")}</div>
+                <div class="col-md-3"><span class="text-muted">Passenger:</span> ${esc(passenger.trim())}</div>
+                <div class="col-md-3"><span class="text-muted">Booking code:</span> ${esc(t.booking_code || det.booking_code || "")}</div>
+                <div class="col-md-3"><span class="text-muted">Ticket/PNR:</span> ${esc(t.pnr || det.pnr || "")}</div>
+                <div class="col-md-3"><span class="text-muted">Provider:</span> ${esc(t.provider_id || det.provider_id || "")}</div>
+                <div class="col-md-3"><span class="text-muted">Payment:</span> ${esc(t.pay_method || det.payment_method || "")}</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    // toggle handlers
+    document.querySelectorAll(".tx-toggle").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.getAttribute("data-target");
+        if (!target) return;
+        const row = document.getElementById(target);
+        if (!row) return;
+        const isOpen = !row.classList.contains("d-none");
+        if (isOpen) {
+          row.classList.add("d-none");
+          btn.textContent = "▶";
+          btn.setAttribute("aria-expanded", "false");
+        } else {
+          row.classList.remove("d-none");
+          btn.textContent = "▼";
+          btn.setAttribute("aria-expanded", "true");
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

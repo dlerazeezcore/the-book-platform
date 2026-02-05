@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="h5 mb-1">Admin</div>
+          <div class="text-muted small">System configuration for APIs and B2B users.</div>
+        </div>
+      </div>
+      <hr class="my-3"/>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Permissions</div>
+              <div class="text-muted small mt-1">Enable/disable providers, booking mode, filters, schedules.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_permissions') }}">Open</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Users</div>
+              <div class="text-muted small mt-1">Create B2B companies, manage balances, API access, commission/markup.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_users') }}">Open</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Sub users</div>
+              <div class="text-muted small mt-1">Manage company employees (sub users): edit, disable, delete, and filter by company.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_sub_users') }}">Open</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Subscriptions</div>
+              <div class="text-muted small mt-1">View, suspend, edit expiry, and delete add-on subscriptions.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_subscriptions') }}">Open</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Other APIs</div>
+              <div class="text-muted small mt-1">Manage external APIs like FIB credentials and active account.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_other_apis') }}">Open</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card border-0 shadow-sm">
+            <div class="card-body">
+              <div class="fw-semibold">Announcements</div>
+              <div class="text-muted small mt-1">Create time-based announcements for all users.</div>
+              <a class="btn btn-sm btn-dark mt-3" href="{{ request.url_for('admin_announcements') }}">Open</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

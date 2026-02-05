@@ -1,0 +1,859 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Other APIs</div>
+              <div class="text-muted small">Manage external integrations like FIB bank accounts.</div>
+            </div>
+            <div class="d-flex gap-2">
+              <a class="btn btn-outline-secondary btn-sm" href="{{ request.url_for('admin') }}">Back</a>
+              <button class="btn btn-outline-secondary btn-sm" id="refreshBtn" type="button">Refresh</button>
+            </div>
+          </div>
+
+          <hr class="my-3"/>
+
+          <details class="api-section">
+            <summary class="api-summary">FIB (Bank) accounts</summary>
+            <div class="mt-2">
+              <div class="mb-3">
+                <div class="fw-semibold">FIB (Bank) accounts</div>
+                <div class="text-muted small">Add multiple accounts and switch the active one instantly.</div>
+              </div>
+
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+              <div class="fw-semibold mb-2">Add or edit account</div>
+              <form class="row g-2" id="fibForm">
+                <input type="hidden" id="fibId">
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Account name</label>
+                  <input class="form-control" id="fibLabel" placeholder="Main account" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Client ID</label>
+                  <input class="form-control" id="fibClientId" placeholder="client id" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Client secret</label>
+                  <input class="form-control" id="fibClientSecret" placeholder="client secret" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Base URL</label>
+                  <input class="form-control" id="fibBaseUrl" placeholder="https://api.fib.example" required>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button class="btn btn-dark" type="submit">Save</button>
+                  <button class="btn btn-outline-secondary" type="button" id="fibClearBtn">Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="min-width: 180px;">Account</th>
+                  <th style="min-width: 180px;">Client ID</th>
+                  <th style="min-width: 200px;">Base URL</th>
+                  <th style="min-width: 120px;">Status</th>
+                  <th style="min-width: 180px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="fibTbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Test payment</div>
+              <div class="text-muted small mb-3">Creates a FIB payment link + QR for IQD 5,000.</div>
+              <button class="btn btn-outline-primary btn-sm" id="fibTestBtn" type="button">Create test payment</button>
+
+              <div class="mt-3 d-none" id="fibTestResult">
+                <div class="d-flex flex-wrap align-items-center gap-3">
+                  <img id="fibTestQr" alt="FIB QR" style="width: 140px; height: 140px; border-radius: 12px; border: 1px solid #e5e7eb;">
+                  <div>
+                    <div class="text-muted small">Payment link</div>
+                    <a id="fibTestLink" href="#" target="_blank" rel="noopener" class="mono"></a>
+                    <div class="text-muted small mt-2">Reference</div>
+                    <div id="fibTestRef" class="mono"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+            </div>
+          </details>
+
+          <hr class="my-4"/>
+
+          <details class="api-section">
+            <summary class="api-summary">eSIM Oasis (Partner API)</summary>
+            <div class="mt-2">
+              <div class="mb-3">
+                <div class="fw-semibold">eSIM Oasis (Partner API)</div>
+                <div class="text-muted small">Add multiple keys and switch the active one instantly.</div>
+              </div>
+
+          <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+              <div class="fw-semibold mb-2">Add or edit account</div>
+              <form class="row g-2" id="esimForm">
+                <input type="hidden" id="esimId">
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Account name</label>
+                  <input class="form-control" id="esimLabel" placeholder="Main account" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Key ID</label>
+                  <input class="form-control" id="esimKeyId" placeholder="ak_xxx" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Secret</label>
+                  <input class="form-control" id="esimSecret" placeholder="sk_xxx" required>
+                </div>
+                <div class="col-md-3">
+                  <label class="form-label small text-muted mb-1">Base URL</label>
+                  <input class="form-control" id="esimBaseUrl" placeholder="https://www.esimoasis.com/api/v1" required>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button class="btn btn-dark" type="submit">Save</button>
+                  <button class="btn btn-outline-secondary" type="button" id="esimClearBtn">Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="min-width: 180px;">Account</th>
+                  <th style="min-width: 220px;">Key ID</th>
+                  <th style="min-width: 200px;">Base URL</th>
+                  <th style="min-width: 120px;">Status</th>
+                  <th style="min-width: 180px;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="esimTbody"></tbody>
+            </table>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Display settings</div>
+              <div class="text-muted small mb-3">Whitelist countries, FX rate, and markup for customer prices.</div>
+              <form class="row g-2" id="esimSettingsForm">
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Allowed countries (ISO codes)</label>
+                  <input class="form-control" id="esimAllowedCountries" placeholder="TR, AE, SA">
+                  <div class="text-muted small mt-1">Leave empty to allow all countries.</div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small text-muted mb-1">Exchange rate (IQD per 1 USD)</label>
+                  <input class="form-control" id="esimFxRate" type="number" min="0" step="0.01" placeholder="1310">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small text-muted mb-1">Markup percent</label>
+                  <input class="form-control" id="esimMarkupPercent" type="number" min="0" step="0.01" placeholder="10">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label small text-muted mb-1">Markup fixed (IQD)</label>
+                  <input class="form-control" id="esimMarkupFixed" type="number" min="0" step="1" placeholder="5000">
+                </div>
+                <div class="col-12 d-flex gap-2">
+                  <button class="btn btn-dark" type="submit">Save settings</button>
+                  <button class="btn btn-outline-secondary" type="button" id="esimSettingsClearBtn">Clear</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Popular destinations</div>
+              <div class="text-muted small mb-3">Add up to 16 destinations (shown in a 4x4 grid). Use initials for non-flag icons.</div>
+              <div class="table-responsive">
+                <table class="table align-middle mb-2">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 220px;">Name</th>
+                      <th style="min-width: 120px;">ISO (optional)</th>
+                      <th style="min-width: 120px;">Initials</th>
+                      <th style="min-width: 120px;">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="esimPopularTbody"></tbody>
+                </table>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" id="esimPopularAddBtn" type="button">Add destination</button>
+              <div class="text-muted small mt-2">Examples: Middle East = ME, Asia = AS, Americas = A+, Hawaii = HA, Northern Cyprus = NC.</div>
+              <div class="mt-3">
+                <div class="text-muted small mb-2">No-flag initials reference</div>
+                <div class="d-flex flex-wrap gap-2" id="esimInitialsList"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Exchange rate history</div>
+              <div class="text-muted small mb-3">Who added the rate and when.</div>
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th style="min-width: 140px;">Rate</th>
+                      <th style="min-width: 220px;">Added by</th>
+                      <th style="min-width: 200px;">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody id="esimFxTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Test connection</div>
+              <div class="text-muted small mb-3">Calls the Partner API ping endpoint.</div>
+              <button class="btn btn-outline-primary btn-sm" id="esimPingBtn" type="button">Ping</button>
+
+              <div class="mt-3 d-none" id="esimPingResult">
+                <div class="text-muted small">Response</div>
+                <pre class="codebox mb-0" id="esimPingJson"></pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="card border-0 shadow-sm mt-4">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">Balance</div>
+              <div class="text-muted small mb-3">Shows your agency credit and billing status.</div>
+              <button class="btn btn-outline-primary btn-sm" id="esimBalanceBtn" type="button">Refresh balance</button>
+              <div class="mt-3 d-none" id="esimBalanceResult">
+                <div class="text-muted small">Balance data</div>
+                <pre class="codebox mb-0" id="esimBalanceJson"></pre>
+              </div>
+            </div>
+          </div>
+
+            </div>
+          </details>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  const fibTbody = document.getElementById("fibTbody");
+  const refreshBtn = document.getElementById("refreshBtn");
+  const fibForm = document.getElementById("fibForm");
+  const fibClearBtn = document.getElementById("fibClearBtn");
+  const fibTestBtn = document.getElementById("fibTestBtn");
+  const fibTestResult = document.getElementById("fibTestResult");
+  const fibTestQr = document.getElementById("fibTestQr");
+  const fibTestLink = document.getElementById("fibTestLink");
+  const fibTestRef = document.getElementById("fibTestRef");
+
+  const esimTbody = document.getElementById("esimTbody");
+  const esimForm = document.getElementById("esimForm");
+  const esimClearBtn = document.getElementById("esimClearBtn");
+  const esimSettingsForm = document.getElementById("esimSettingsForm");
+  const esimSettingsClearBtn = document.getElementById("esimSettingsClearBtn");
+  const esimAllowedCountries = document.getElementById("esimAllowedCountries");
+  const esimFxRate = document.getElementById("esimFxRate");
+  const esimMarkupPercent = document.getElementById("esimMarkupPercent");
+  const esimMarkupFixed = document.getElementById("esimMarkupFixed");
+  const esimFxTbody = document.getElementById("esimFxTbody");
+  const esimPingBtn = document.getElementById("esimPingBtn");
+  const esimPingResult = document.getElementById("esimPingResult");
+  const esimPingJson = document.getElementById("esimPingJson");
+  const esimBalanceBtn = document.getElementById("esimBalanceBtn");
+  const esimBalanceResult = document.getElementById("esimBalanceResult");
+  const esimBalanceJson = document.getElementById("esimBalanceJson");
+  const esimPopularTbody = document.getElementById("esimPopularTbody");
+  const esimPopularAddBtn = document.getElementById("esimPopularAddBtn");
+  const esimInitialsList = document.getElementById("esimInitialsList");
+
+  const formEls = {
+    id: document.getElementById("fibId"),
+    label: document.getElementById("fibLabel"),
+    clientId: document.getElementById("fibClientId"),
+    clientSecret: document.getElementById("fibClientSecret"),
+    baseUrl: document.getElementById("fibBaseUrl"),
+  };
+
+  const esimEls = {
+    id: document.getElementById("esimId"),
+    label: document.getElementById("esimLabel"),
+    keyId: document.getElementById("esimKeyId"),
+    secret: document.getElementById("esimSecret"),
+    baseUrl: document.getElementById("esimBaseUrl"),
+  };
+
+  let fibState = { accounts: [], active_account_id: "" };
+  let esimState = { accounts: [], active_account_id: "", settings: {}, fx_history: [] };
+
+  const CURRENT_USER_ID = "{{ (current_user.id if current_user else '') }}";
+  const CURRENT_USER_NAME = "{{ (current_user.username or current_user.email or '') if current_user else '' }}";
+
+  const esc = (s) => String(s || "")
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+
+  const INITIALS_OVERRIDES = {
+    "middle east": "ME",
+    "asia": "AS",
+    "americas": "A+",
+    "americas + us + ca": "A+",
+    "hawaii": "HA",
+    "northern cyprus": "NC",
+  };
+
+  const initialsFromName = (name) => {
+    const key = String(name || "").toLowerCase().trim();
+    if (INITIALS_OVERRIDES[key]) return INITIALS_OVERRIDES[key];
+    const parts = String(name || "")
+      .replace(/\\+/g, " ")
+      .split(/\\s+/)
+      .filter(Boolean);
+    if (!parts.length) return "";
+    const letters = parts.map(p => p[0].toUpperCase()).join("");
+    return letters.slice(0, 2);
+  };
+
+  const genId = () => {
+    if (window.crypto && window.crypto.randomUUID) return window.crypto.randomUUID();
+    return "fib_" + Math.random().toString(16).slice(2);
+  };
+
+  const resetForm = () => {
+    formEls.id.value = "";
+    formEls.label.value = "";
+    formEls.clientId.value = "";
+    formEls.clientSecret.value = "";
+    formEls.baseUrl.value = "";
+  };
+
+  const resetEsimForm = () => {
+    esimEls.id.value = "";
+    esimEls.label.value = "";
+    esimEls.keyId.value = "";
+    esimEls.secret.value = "";
+    esimEls.baseUrl.value = "";
+  };
+
+  const resetEsimSettings = () => {
+    if (esimAllowedCountries) esimAllowedCountries.value = "";
+    if (esimFxRate) esimFxRate.value = "";
+    if (esimMarkupPercent) esimMarkupPercent.value = "";
+    if (esimMarkupFixed) esimMarkupFixed.value = "";
+    if (esimPopularTbody) {
+      esimPopularTbody.innerHTML = "";
+      updatePopularLimit();
+    }
+  };
+
+  const saveState = () => {
+    return fetch("/other-apis-data/fib", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(fibState),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        fibState = data || fibState;
+        render();
+      });
+  };
+
+  const render = () => {
+    if (!fibTbody) return;
+    fibTbody.innerHTML = "";
+    if (!fibState.accounts || fibState.accounts.length === 0) {
+      fibTbody.innerHTML = `<tr><td colspan="5" class="text-muted small">No FIB accounts yet.</td></tr>`;
+      return;
+    }
+
+    fibState.accounts.forEach((acc) => {
+      const isActive = acc.id === fibState.active_account_id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>
+          <div class="fw-semibold">${esc(acc.label || "Account")}</div>
+          <div class="text-muted small">${esc(acc.id)}</div>
+        </td>
+        <td><span class="mono">${esc(acc.client_id)}</span></td>
+        <td>${esc(acc.base_url)}</td>
+        <td>
+          ${isActive ? '<span class="badge text-bg-success">Active</span>' : '<span class="badge text-bg-secondary">Inactive</span>'}
+        </td>
+        <td class="d-flex flex-wrap gap-2">
+          ${isActive
+            ? '<button class="btn btn-sm btn-outline-danger" data-action="deactivate">Deactivate</button>'
+            : '<button class="btn btn-sm btn-outline-dark" data-action="activate">Make active</button>'}
+          <button class="btn btn-sm btn-outline-secondary" data-action="edit">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" data-action="delete">Delete</button>
+        </td>
+      `;
+
+      const activateBtn = row.querySelector('[data-action="activate"]');
+      if (activateBtn) {
+        activateBtn.addEventListener("click", () => {
+          fibState.active_account_id = acc.id;
+          saveState();
+        });
+      }
+
+      const deactivateBtn = row.querySelector('[data-action="deactivate"]');
+      if (deactivateBtn) {
+        deactivateBtn.addEventListener("click", () => {
+          fibState.active_account_id = "";
+          saveState();
+        });
+      }
+
+      row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+        formEls.id.value = acc.id;
+        formEls.label.value = acc.label || "";
+        formEls.clientId.value = acc.client_id || "";
+        formEls.clientSecret.value = acc.client_secret || "";
+        formEls.baseUrl.value = acc.base_url || "";
+        formEls.label.focus();
+      });
+
+      row.querySelector('[data-action="delete"]').addEventListener("click", () => {
+        fibState.accounts = fibState.accounts.filter((a) => a.id !== acc.id);
+        if (fibState.active_account_id === acc.id) {
+          fibState.active_account_id = fibState.accounts[0] ? fibState.accounts[0].id : "";
+        }
+        saveState();
+      });
+
+      fibTbody.appendChild(row);
+    });
+  };
+
+  const saveEsimState = () => {
+    return fetch("/other-apis-data/esim", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(esimState),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        esimState = data || esimState;
+        renderEsim();
+      });
+  };
+
+  const renderEsim = () => {
+    if (!esimTbody) return;
+    esimTbody.innerHTML = "";
+    if (!esimState.accounts || esimState.accounts.length === 0) {
+      esimTbody.innerHTML = `<tr><td colspan="5" class="text-muted small">No eSIM accounts yet.</td></tr>`;
+      return;
+    }
+
+    esimState.accounts.forEach((acc) => {
+      const isActive = acc.id === esimState.active_account_id;
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>
+          <div class="fw-semibold">${esc(acc.label || "Account")}</div>
+          <div class="text-muted small">${esc(acc.id)}</div>
+        </td>
+        <td><span class="mono">${esc(acc.key_id)}</span></td>
+        <td>${esc(acc.base_url)}</td>
+        <td>
+          ${isActive ? '<span class="badge text-bg-success">Active</span>' : '<span class="badge text-bg-secondary">Inactive</span>'}
+        </td>
+        <td class="d-flex flex-wrap gap-2">
+          ${isActive
+            ? '<button class="btn btn-sm btn-outline-danger" data-action="deactivate">Deactivate</button>'
+            : '<button class="btn btn-sm btn-outline-dark" data-action="activate">Make active</button>'}
+          <button class="btn btn-sm btn-outline-secondary" data-action="edit">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" data-action="delete">Delete</button>
+        </td>
+      `;
+
+      const activateBtn = row.querySelector('[data-action="activate"]');
+      if (activateBtn) {
+        activateBtn.addEventListener("click", () => {
+          esimState.active_account_id = acc.id;
+          saveEsimState();
+        });
+      }
+
+      const deactivateBtn = row.querySelector('[data-action="deactivate"]');
+      if (deactivateBtn) {
+        deactivateBtn.addEventListener("click", () => {
+          esimState.active_account_id = "";
+          saveEsimState();
+        });
+      }
+
+      row.querySelector('[data-action="edit"]').addEventListener("click", () => {
+        esimEls.id.value = acc.id;
+        esimEls.label.value = acc.label || "";
+        esimEls.keyId.value = acc.key_id || "";
+        esimEls.secret.value = acc.secret || "";
+        esimEls.baseUrl.value = acc.base_url || "";
+        esimEls.label.focus();
+      });
+
+      row.querySelector('[data-action="delete"]').addEventListener("click", () => {
+        esimState.accounts = esimState.accounts.filter((a) => a.id !== acc.id);
+        if (esimState.active_account_id === acc.id) {
+          esimState.active_account_id = esimState.accounts[0] ? esimState.accounts[0].id : "";
+        }
+        saveEsimState();
+      });
+
+      esimTbody.appendChild(row);
+    });
+  };
+
+  const renderEsimSettings = () => {
+    const s = esimState.settings || {};
+    if (esimAllowedCountries) {
+      const list = Array.isArray(s.allowed_countries) ? s.allowed_countries : [];
+      esimAllowedCountries.value = list.join(", ");
+    }
+    if (esimFxRate) esimFxRate.value = (s.fx_rate != null ? s.fx_rate : "");
+    if (esimMarkupPercent) esimMarkupPercent.value = (s.markup_percent != null ? s.markup_percent : "");
+    if (esimMarkupFixed) esimMarkupFixed.value = (s.markup_fixed_iqd != null ? s.markup_fixed_iqd : "");
+  };
+
+  const buildPopularRow = (item = {}) => {
+    const row = document.createElement("tr");
+    row.classList.add("popular-row");
+    row.draggable = true;
+    row.innerHTML = `
+      <td><input class="form-control form-control-sm" placeholder="Destination name" value="${esc(item.name || "")}"></td>
+      <td><input class="form-control form-control-sm" placeholder="TR" maxlength="4" value="${esc(item.iso || "")}"></td>
+      <td><input class="form-control form-control-sm" placeholder="ME" maxlength="4" value="${esc(item.initials || "")}"></td>
+      <td>
+        <span class="drag-handle" title="Drag to reorder">↕</span>
+        <button class="btn btn-sm btn-outline-danger" type="button">Remove</button>
+      </td>
+    `;
+    row.querySelector("button").addEventListener("click", () => {
+      row.remove();
+      updatePopularLimit();
+    });
+    row.addEventListener("dragstart", () => row.classList.add("dragging"));
+    row.addEventListener("dragend", () => row.classList.remove("dragging"));
+    return row;
+  };
+
+  const updatePopularLimit = () => {
+    if (!esimPopularAddBtn || !esimPopularTbody) return;
+    const rows = esimPopularTbody.querySelectorAll("tr").length;
+    esimPopularAddBtn.disabled = rows >= 16;
+  };
+
+  const renderPopular = () => {
+    if (!esimPopularTbody) return;
+    esimPopularTbody.innerHTML = "";
+    const list = Array.isArray(esimState.settings?.popular_destinations)
+      ? esimState.settings.popular_destinations
+      : [];
+    list.slice(0, 16).forEach((item) => {
+      esimPopularTbody.appendChild(buildPopularRow(item));
+    });
+    updatePopularLimit();
+  };
+
+  const collectPopular = () => {
+    if (!esimPopularTbody) return [];
+    const out = [];
+    esimPopularTbody.querySelectorAll("tr").forEach((row) => {
+      const inputs = row.querySelectorAll("input");
+      const name = (inputs[0]?.value || "").trim();
+      const iso = (inputs[1]?.value || "").trim().toUpperCase();
+      const initials = (inputs[2]?.value || "").trim().toUpperCase();
+      if (!name) return;
+      out.push({ name, iso, initials });
+    });
+    return out.slice(0, 16);
+  };
+
+  const getDragAfterElement = (container, y) => {
+    const rows = [...container.querySelectorAll("tr:not(.dragging)")];
+    return rows.reduce((closest, child) => {
+      const box = child.getBoundingClientRect();
+      const offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > closest.offset) {
+        return { offset, element: child };
+      }
+      return closest;
+    }, { offset: Number.NEGATIVE_INFINITY, element: null }).element;
+  };
+
+  const renderFxHistory = () => {
+    if (!esimFxTbody) return;
+    const items = Array.isArray(esimState.fx_history) ? esimState.fx_history : [];
+    if (!items.length) {
+      esimFxTbody.innerHTML = `<tr><td colspan="3" class="text-muted small">No rate history yet.</td></tr>`;
+      return;
+    }
+    esimFxTbody.innerHTML = "";
+    items.slice().reverse().forEach((h) => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${esc(h.rate)}</td>
+        <td>${esc(h.created_by || h.created_by_id || "—")}</td>
+        <td>${esc(h.created_at || "—")}</td>
+      `;
+      esimFxTbody.appendChild(row);
+    });
+  };
+
+  const load = () => {
+    fetch("/other-apis-data/fib")
+      .then((r) => r.json())
+      .then((data) => {
+        fibState = data || fibState;
+        if (!Array.isArray(fibState.accounts)) fibState.accounts = [];
+        if (!fibState.active_account_id && fibState.accounts[0]) {
+          fibState.active_account_id = fibState.accounts[0].id;
+        }
+        render();
+      });
+  };
+
+  const loadEsim = () => {
+    fetch("/other-apis-data/esim")
+      .then((r) => r.json())
+      .then((data) => {
+        esimState = data || esimState;
+        if (!Array.isArray(esimState.accounts)) esimState.accounts = [];
+        if (!esimState.active_account_id && esimState.accounts[0]) {
+          esimState.active_account_id = esimState.accounts[0].id;
+        }
+        if (!esimState.settings || typeof esimState.settings !== "object") {
+          esimState.settings = {};
+        }
+        if (!Array.isArray(esimState.fx_history)) esimState.fx_history = [];
+        renderEsim();
+        renderEsimSettings();
+        renderPopular();
+        renderFxHistory();
+      });
+  };
+
+  fibForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = formEls.id.value || genId();
+    const account = {
+      id,
+      label: formEls.label.value.trim(),
+      client_id: formEls.clientId.value.trim(),
+      client_secret: formEls.clientSecret.value.trim(),
+      base_url: formEls.baseUrl.value.trim(),
+    };
+
+    const idx = fibState.accounts.findIndex((a) => a.id === id);
+    if (idx >= 0) fibState.accounts[idx] = account;
+    else fibState.accounts.push(account);
+
+    if (!fibState.active_account_id) fibState.active_account_id = id;
+    saveState().then(() => resetForm());
+  });
+
+  fibClearBtn.addEventListener("click", resetForm);
+  refreshBtn.addEventListener("click", () => {
+    load();
+    loadEsim();
+  });
+
+  fibTestBtn.addEventListener("click", () => {
+    fetch("/other-apis-data/fib/create-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount: 5000, description: "FIB test payment" }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data || data.error) {
+          alert(data?.error || "Failed to create test payment.");
+          return;
+        }
+        fibTestResult.classList.remove("d-none");
+        fibTestQr.src = data.qr_url || "";
+        fibTestLink.href = data.payment_link || "#";
+        fibTestLink.textContent = data.payment_link || "";
+        fibTestRef.textContent = data.reference || "";
+      })
+      .catch(() => alert("Failed to create test payment."));
+  });
+
+  if (esimForm) {
+    esimForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const id = esimEls.id.value || genId();
+      const account = {
+        id,
+        label: esimEls.label.value.trim(),
+        key_id: esimEls.keyId.value.trim(),
+        secret: esimEls.secret.value.trim(),
+        base_url: esimEls.baseUrl.value.trim(),
+      };
+
+      const idx = esimState.accounts.findIndex((a) => a.id === id);
+      if (idx >= 0) esimState.accounts[idx] = account;
+      else esimState.accounts.push(account);
+
+      if (!esimState.active_account_id) esimState.active_account_id = id;
+      saveEsimState().then(() => resetEsimForm());
+    });
+  }
+
+  if (esimClearBtn) esimClearBtn.addEventListener("click", resetEsimForm);
+
+  if (esimSettingsForm) {
+    esimSettingsForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const allowedRaw = (esimAllowedCountries ? esimAllowedCountries.value : "") || "";
+      const allowed = allowedRaw
+        .split(/[,\\s]+/)
+        .map(s => s.trim().toUpperCase())
+        .filter(Boolean);
+
+      const fxRate = esimFxRate ? Number(esimFxRate.value) : 0;
+      const markupPercent = esimMarkupPercent ? Number(esimMarkupPercent.value) : 0;
+      const markupFixed = esimMarkupFixed ? Number(esimMarkupFixed.value) : 0;
+
+      esimState.settings = {
+        allowed_countries: allowed,
+        fx_rate: Number.isFinite(fxRate) ? fxRate : 0,
+        markup_percent: Number.isFinite(markupPercent) ? markupPercent : 0,
+        markup_fixed_iqd: Number.isFinite(markupFixed) ? markupFixed : 0,
+        popular_destinations: collectPopular(),
+      };
+      esimState.fx_updated_by = CURRENT_USER_NAME || "";
+      esimState.fx_updated_by_id = CURRENT_USER_ID || "";
+
+      saveEsimState().then(() => {
+        renderEsimSettings();
+        renderPopular();
+        renderFxHistory();
+      });
+    });
+  }
+
+  if (esimSettingsClearBtn) esimSettingsClearBtn.addEventListener("click", resetEsimSettings);
+
+  if (esimPopularAddBtn) {
+    esimPopularAddBtn.addEventListener("click", () => {
+      if (!esimPopularTbody) return;
+      if (esimPopularTbody.querySelectorAll("tr").length >= 16) return;
+      esimPopularTbody.appendChild(buildPopularRow({}));
+      updatePopularLimit();
+    });
+  }
+
+  if (esimPopularTbody) {
+    esimPopularTbody.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      const dragging = esimPopularTbody.querySelector(".dragging");
+      if (!dragging) return;
+      const after = getDragAfterElement(esimPopularTbody, e.clientY);
+      if (after == null) {
+        esimPopularTbody.appendChild(dragging);
+      } else {
+        esimPopularTbody.insertBefore(dragging, after);
+      }
+    });
+  }
+
+  const initialsReference = [
+    "Africa",
+    "Balkans",
+    "Carribbean",
+    "Cenam",
+    "Europe+USA",
+    "Europe USA Business Hubs",
+    "Europe Lite",
+    "Europe +",
+    "Europe + USA",
+    "Global",
+    "Global Light",
+    "Global Max",
+    "Global Standard",
+    "Latam",
+    "North America",
+    "Ocean",
+    "South East Eurppe",
+  ];
+
+  const renderInitialsReference = () => {
+    if (!esimInitialsList) return;
+    esimInitialsList.innerHTML = "";
+    initialsReference.forEach((name) => {
+      const badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "btn btn-light btn-sm";
+      const initial = initialsFromName(name);
+      badge.textContent = `${name} · ${initial}`;
+      badge.addEventListener("click", () => {
+        if (!esimPopularTbody) return;
+        if (esimPopularTbody.querySelectorAll("tr").length >= 16) return;
+        esimPopularTbody.appendChild(buildPopularRow({ name, initials: initial }));
+        updatePopularLimit();
+      });
+      esimInitialsList.appendChild(badge);
+    });
+  };
+
+  if (esimPingBtn) {
+    esimPingBtn.addEventListener("click", () => {
+      fetch("/other-apis-data/esim/ping")
+        .then((r) => r.json())
+        .then((data) => {
+          if (esimPingResult) esimPingResult.classList.remove("d-none");
+          if (esimPingJson) esimPingJson.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(() => {
+          if (esimPingResult) esimPingResult.classList.remove("d-none");
+          if (esimPingJson) esimPingJson.textContent = "Failed to reach eSIM API.";
+        });
+    });
+  }
+
+  if (esimBalanceBtn) {
+    esimBalanceBtn.addEventListener("click", () => {
+      fetch("/other-apis-data/esim/balance")
+        .then((r) => r.json())
+        .then((data) => {
+          if (esimBalanceResult) esimBalanceResult.classList.remove("d-none");
+          if (esimBalanceJson) esimBalanceJson.textContent = JSON.stringify(data, null, 2);
+        })
+        .catch(() => {
+          if (esimBalanceResult) esimBalanceResult.classList.remove("d-none");
+          if (esimBalanceJson) esimBalanceJson.textContent = "Failed to load balance.";
+        });
+    });
+  }
+
+  load();
+  loadEsim();
+  renderInitialsReference();
+</script>
+{% endblock %}

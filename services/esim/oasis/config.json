@@ -1,0 +1,27 @@
+{
+  "accounts": [
+    {
+      "id": "fib_86ec681344f068",
+      "label": "Dana",
+      "key_id": "ak_21f1649bf936",
+      "secret": "sk_23efe31de4af41879d3320add648bbdf",
+      "base_url": "https://www.esimoasis.com/api/v1"
+    }
+  ],
+  "active_account_id": "fib_86ec681344f068",
+  "settings": {
+    "allowed_countries": [],
+    "fx_rate": 1500.0,
+    "markup_percent": 0.0,
+    "markup_fixed_iqd": 0.0,
+    "popular_destinations": []
+  },
+  "fx_history": [
+    {
+      "rate": 1500.0,
+      "created_at": "2026-02-05T08:40:09.127918Z",
+      "created_by": "dler",
+      "created_by_id": "1f21b9694f3c44b4b9a6d6b3607fda4a"
+    }
+  ]
+}

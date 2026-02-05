@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block content %}
+<main class="container app-shell my-4">
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card search-card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <div class="results-title">Announcements</div>
+              <div class="text-muted small">Only super admin can create announcements.</div>
+            </div>
+            <a class="btn btn-outline-secondary btn-sm" href="{{ request.url_for('admin') }}">Back</a>
+          </div>
+
+          <hr class="my-3"/>
+
+          <div class="fw-semibold mb-2">Add new Announcement</div>
+          <form class="row g-3" method="post" action="{{ request.url_for('admin_announcements_create') }}">
+            <div class="col-md-6">
+              <label class="form-label">Title *</label>
+              <input class="form-control" name="title" maxlength="100" placeholder="Max 100 characters" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Start Date *</label>
+              <input class="form-control" type="date" name="start_date" required>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Start Time *</label>
+              <input class="form-control" type="text" name="start_time" value="00:00" placeholder="HH:MM" inputmode="numeric" maxlength="5" data-time-input required>
+              <div class="text-muted small">24-hour format (HH:MM)</div>
+            </div>
+
+            <div class="col-md-3">
+              <label class="form-label">End Date</label>
+              <input class="form-control" type="date" name="end_date">
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">End Time</label>
+              <input class="form-control" type="text" name="end_time" value="00:00" placeholder="HH:MM" inputmode="numeric" maxlength="5" data-time-input>
+              <div class="text-muted small">24-hour format (HH:MM)</div>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Type</label>
+              <select class="form-select" name="type">
+                <option value="General" selected>General</option>
+              </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="activeStatus" name="active" checked>
+                <label class="form-check-label" for="activeStatus">Active status</label>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Description *</label>
+              <textarea class="form-control" name="description" rows="4" required></textarea>
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+              <button class="btn btn-outline-secondary" type="reset">Cancel</button>
+              <button class="btn btn-dark" type="submit">Add new</button>
+            </div>
+          </form>
+
+          <hr class="my-4"/>
+
+          <div class="fw-semibold mb-2">Announcements list</div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="min-width: 200px;">Title</th>
+                  <th style="min-width: 140px;">Type</th>
+                  <th style="min-width: 200px;">Start</th>
+                  <th style="min-width: 200px;">End</th>
+                  <th style="min-width: 120px;">Status</th>
+                  <th style="min-width: 160px;" class="text-end">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if announcements and announcements|length %}
+                  {% for a in announcements %}
+                    <tr>
+                      <td>
+                        <div class="fw-semibold">{{ a.title }}</div>
+                        <div class="text-muted small">{{ a.description }}</div>
+                      </td>
+                      <td>{{ a.type or "General" }}</td>
+                      <td>
+                        <div>{{ a.start_date }} {{ a.start_time }}</div>
+                      </td>
+                      <td>
+                        <div>{{ a.end_date }} {{ a.end_time }}</div>
+                      </td>
+                      <td>
+                        {% if a.status == "active" %}
+                          <span class="badge text-bg-success">Active</span>
+                        {% elif a.status == "upcoming" %}
+                          <span class="badge text-bg-info">Upcoming</span>
+                        {% elif a.status == "expired" %}
+                          <span class="badge text-bg-secondary">Expired</span>
+                        {% else %}
+                          <span class="badge text-bg-secondary">Inactive</span>
+                        {% endif %}
+                      </td>
+                      <td class="text-end">
+                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit{{ a.id }}">Edit</button>
+                        <form class="d-inline" method="post" action="{{ request.url_for('admin_announcements_delete', ann_id=a.id) }}">
+                          <button class="btn btn-sm btn-outline-danger" type="submit">Delete</button>
+                        </form>
+                      </td>
+                    </tr>
+                    <tr class="collapse" id="edit{{ a.id }}">
+                      <td colspan="6">
+                        <form class="row g-2" method="post" action="{{ request.url_for('admin_announcements_update', ann_id=a.id) }}">
+                          <div class="col-md-6">
+                            <label class="form-label small">Title *</label>
+                            <input class="form-control" name="title" value="{{ a.title }}" maxlength="100" required>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small">Start Date *</label>
+                            <input class="form-control" type="date" name="start_date" value="{{ a.start_date }}" required>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small">Start Time *</label>
+                            <input class="form-control" type="text" name="start_time" value="{{ a.start_time or '00:00' }}" placeholder="HH:MM" inputmode="numeric" maxlength="5" data-time-input required>
+                            <div class="text-muted small">24-hour format (HH:MM)</div>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small">End Date</label>
+                            <input class="form-control" type="date" name="end_date" value="{{ a.end_date }}">
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small">End Time</label>
+                            <input class="form-control" type="text" name="end_time" value="{{ a.end_time or '00:00' }}" placeholder="HH:MM" inputmode="numeric" maxlength="5" data-time-input>
+                            <div class="text-muted small">24-hour format (HH:MM)</div>
+                          </div>
+                          <div class="col-md-3">
+                            <label class="form-label small">Type</label>
+                            <select class="form-select" name="type">
+                              <option value="General" {% if (a.type or 'General') == 'General' %}selected{% endif %}>General</option>
+                            </select>
+                          </div>
+                          <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                              <input class="form-check-input" type="checkbox" id="active{{ a.id }}" name="active" {% if a.active %}checked{% endif %}>
+                              <label class="form-check-label" for="active{{ a.id }}">Active status</label>
+                            </div>
+                          </div>
+                          <div class="col-12">
+                            <label class="form-label small">Description *</label>
+                            <textarea class="form-control" name="description" rows="3" required>{{ a.description }}</textarea>
+                          </div>
+                          <div class="col-12 d-flex gap-2">
+                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#edit{{ a.id }}">Cancel</button>
+                            <button class="btn btn-dark" type="submit">Save changes</button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                  <tr>
+                    <td colspan="6" class="text-muted small">No announcements yet.</td>
+                  </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  const formatTime = (digits) => {
+    if (!digits) return "";
+    if (digits.length === 1) return "0" + digits + ":00";
+    if (digits.length === 2) return digits + ":00";
+    if (digits.length === 3) return "0" + digits[0] + ":" + digits.slice(1);
+    return digits.slice(0, 2) + ":" + digits.slice(2, 4);
+  };
+
+  document.querySelectorAll("[data-time-input]").forEach((input) => {
+    input.addEventListener("focus", () => {
+      input.select();
+    });
+    input.addEventListener("click", () => {
+      input.select();
+    });
+    input.addEventListener("input", () => {
+      const digits = input.value.replace(/[^0-9]/g, "").slice(0, 4);
+      // Keep raw digits while typing; format on blur.
+      input.value = digits;
+    });
+    input.addEventListener("blur", () => {
+      const digits = input.value.replace(/[^0-9]/g, "").slice(0, 4);
+      if (!digits) {
+        input.value = "";
+        return;
+      }
+      input.value = formatTime(digits);
+    });
+  });
+
+  document.querySelectorAll("form").forEach((form) => {
+    form.addEventListener("submit", () => {
+      form.querySelectorAll("[data-time-input]").forEach((input) => {
+        const digits = input.value.replace(/[^0-9]/g, "").slice(0, 4);
+        if (!digits) return;
+        input.value = formatTime(digits);
+      });
+    });
+  });
+</script>
+{% endblock %}

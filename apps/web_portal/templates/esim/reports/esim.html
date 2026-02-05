@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="esim-report">
+  <div class="container app-shell py-4">
+    <div class="text-center mb-4">
+      <div class="report-eyebrow">Partner Portal</div>
+      <h1 class="report-title">Orders</h1>
+      <div class="report-subtitle">Review recent orders, trigger refresh, or export for reconciliation.</div>
+    </div>
+
+    <div class="report-card">
+      <div class="report-toolbar">
+        <div class="report-tabs" role="tablist">
+          <button class="report-tab is-active" data-status="all" type="button">All</button>
+          <button class="report-tab" data-status="completed" type="button">Completed</button>
+          <button class="report-tab" data-status="failed" type="button">Failed</button>
+          <button class="report-tab" data-status="revoked" type="button">Revoked</button>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" id="esimExportBtn" type="button">Export CSV</button>
+      </div>
+
+      <div class="report-filters">
+        <div class="report-search">
+          <span class="report-search-icon">🔎</span>
+          <input class="form-control" id="esimReportSearch" placeholder="Search reference, destination, customer, agent...">
+        </div>
+        <div class="report-filter">
+          <label class="form-label small text-muted mb-1">Agent</label>
+          <select class="form-select" id="esimReportAgent">
+            <option value="">All agents</option>
+          </select>
+        </div>
+        <div class="report-filter">
+          <label class="form-label small text-muted mb-1">Company</label>
+          <select class="form-select" id="esimReportCompany">
+            <option value="">All companies</option>
+          </select>
+        </div>
+        <div class="report-filter">
+          <button class="btn btn-outline-secondary w-100" id="esimReportClear" type="button">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="report-table card border-0 shadow-sm mt-4">
+      <div class="card-body">
+        <div id="esimReportRows"></div>
+        <div class="report-footer" id="esimReportFooter"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .esim-report{
+    background: radial-gradient(circle at top, #f7f2e8 0%, #f4f2ec 45%, #f1f3f4 100%);
+    min-height: 100%;
+  }
+  .report-eyebrow{
+    text-transform: uppercase;
+    letter-spacing: .2em;
+    font-size: .75rem;
+    color: #7d806f;
+    font-weight: 700;
+    margin-bottom: .5rem;
+  }
+  .report-title{
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    margin-bottom: .35rem;
+  }
+  .report-subtitle{ color: var(--gf-muted); }
+
+  .report-card{
+    background: #fff;
+    border: 1px solid rgba(32,33,36,.08);
+    border-radius: 18px;
+    padding: 1.25rem;
+    box-shadow: 0 8px 24px rgba(0,0,0,.04);
+  }
+
+  .report-toolbar{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .report-tabs{ display: flex; gap: .5rem; background: #f5f6f7; border-radius: 999px; padding: .25rem; }
+  .report-tab{
+    border: 0;
+    background: transparent;
+    padding: .4rem .9rem;
+    border-radius: 999px;
+    font-weight: 600;
+    color: var(--gf-muted);
+  }
+  .report-tab.is-active{
+    background: #fff;
+    color: var(--gf-ink);
+    box-shadow: 0 2px 10px rgba(0,0,0,.08);
+  }
+
+  .report-filters{
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+  }
+  .report-search{ position: relative; }
+  .report-search-icon{
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: .6;
+  }
+  .report-search .form-control{ padding-left: 36px; border-radius: 999px; }
+
+  .report-table .card-body{ padding: 0; }
+  .report-row{
+    display: grid;
+    grid-template-columns: 1.2fr 1.1fr 1.2fr 1fr 2fr .9fr 1fr;
+    gap: .75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(32,33,36,.08);
+    align-items: center;
+  }
+  .report-row.header{
+    background: #f7f8f9;
+    text-transform: uppercase;
+    font-size: .75rem;
+    letter-spacing: .08em;
+    color: var(--gf-muted);
+    font-weight: 700;
+  }
+  .report-item{
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .report-flag{
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    background: #f0f2f3;
+    display: grid;
+    place-items: center;
+    font-size: 1rem;
+  }
+  .report-status{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: .25rem .6rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .75rem;
+  }
+  .report-status.completed{ background: rgba(16,136,65,.12); color: #108841; }
+  .report-status.failed{ background: rgba(220,53,69,.12); color: #dc3545; }
+  .report-status.revoked{ background: rgba(108,117,125,.2); color: #6c757d; }
+  .report-status.processing{ background: rgba(255,193,7,.2); color: #a77a00; }
+
+  .report-footer{
+    padding: .75rem 1.25rem;
+    text-align: right;
+    color: var(--gf-muted);
+  }
+
+  @media (max-width: 1100px){
+    .report-filters{ grid-template-columns: 1fr 1fr; }
+    .report-row{ grid-template-columns: 1.2fr 1fr 1fr 1fr; }
+    .report-row > div:nth-child(5),
+    .report-row > div:nth-child(6),
+    .report-row > div:nth-child(7){ display:none; }
+  }
+  @media (max-width: 700px){
+    .report-row{ grid-template-columns: 1.3fr 1fr; }
+    .report-row > div:nth-child(3),
+    .report-row > div:nth-child(4){ display:none; }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const rowsEl = document.getElementById("esimReportRows");
+    const footerEl = document.getElementById("esimReportFooter");
+    const searchEl = document.getElementById("esimReportSearch");
+    const agentEl = document.getElementById("esimReportAgent");
+    const companyEl = document.getElementById("esimReportCompany");
+    const clearBtn = document.getElementById("esimReportClear");
+    const exportBtn = document.getElementById("esimExportBtn");
+    const tabBtns = document.querySelectorAll(".report-tab");
+
+    let orders = [];
+    let statusFilter = "all";
+
+    const fmtDate = (iso) => {
+      try {
+        const dt = new Date(iso);
+        if (Number.isNaN(dt.getTime())) return iso || "—";
+        return dt.toLocaleString("en-US", {
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+      } catch {
+        return iso || "—";
+      }
+    };
+
+    const fmtMoney = (minor) => {
+      if (minor === null || minor === undefined) return "—";
+      const n = Number(minor);
+      if (!Number.isFinite(n)) return String(minor);
+      return `IQD ${n.toLocaleString("en-US")}`;
+    };
+
+    const toFlag = (iso) => {
+      try {
+        if (!iso || iso.length !== 2) return iso || "";
+        const code = iso.toUpperCase();
+        const A = 0x1F1E6;
+        return [...code].map(c => String.fromCodePoint(A + (c.charCodeAt(0) - 65))).join("");
+      } catch {
+        return iso || "";
+      }
+    };
+
+    const escapeHtml = (s) => String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+    const applyFilters = () => {
+      const q = (searchEl?.value || "").toLowerCase().trim();
+      const agent = agentEl?.value || "";
+      const company = companyEl?.value || "";
+
+      return orders.filter((o) => {
+        if (statusFilter !== "all" && String(o.status || "").toLowerCase() !== statusFilter) return false;
+        if (agent && String(o.agent_name || "") !== agent) return false;
+        if (company && String(o.company_name || "") !== company) return false;
+        if (!q) return true;
+        const hay = [
+          o.order_reference,
+          o.customer_name,
+          o.agent_name,
+          o.company_name,
+          o.bundle_description,
+          o.bundle_name,
+          o.country_name,
+        ].join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+    };
+
+    const renderRows = () => {
+      if (!rowsEl) return;
+      const list = applyFilters();
+      if (!list.length) {
+        rowsEl.innerHTML = '<div class="p-4 text-muted">No orders found.</div>';
+        if (footerEl) footerEl.textContent = "";
+        return;
+      }
+
+      let html = `
+        <div class="report-row header">
+          <div>Date</div>
+          <div>Customer</div>
+          <div>Company</div>
+          <div>Agent</div>
+          <div>Item</div>
+          <div>Total price</div>
+          <div>Status</div>
+        </div>
+      `;
+      list.forEach((o) => {
+        const status = String(o.status || "processing").toLowerCase();
+        const itemName = o.bundle_description || o.bundle_name || "eSIM";
+        html += `
+          <div class="report-row">
+            <div>${escapeHtml(fmtDate(o.created_at))}</div>
+            <div>${escapeHtml(o.customer_name || "—")}</div>
+            <div>${escapeHtml(o.company_name || "—")}</div>
+            <div>${escapeHtml(o.agent_name || "—")}</div>
+            <div class="report-item">
+              <span class="report-flag">${escapeHtml(toFlag(o.country_iso))}</span>
+              <div>
+                <div class="fw-semibold">${escapeHtml(itemName)}</div>
+                <div class="text-muted small">${escapeHtml(o.country_name || "")}</div>
+              </div>
+            </div>
+            <div class="fw-semibold">${escapeHtml(fmtMoney(o.total_iqd))}</div>
+            <div><span class="report-status ${status}">${escapeHtml(status)}</span></div>
+          </div>
+        `;
+      });
+      rowsEl.innerHTML = html;
+      if (footerEl) footerEl.textContent = `Showing ${list.length} of ${orders.length}`;
+    };
+
+    const refreshFilters = () => {
+      if (agentEl) {
+        const agents = Array.from(new Set(orders.map(o => o.agent_name).filter(Boolean)));
+        agentEl.innerHTML = '<option value="">All agents</option>' + agents.map(a => `<option>${escapeHtml(a)}</option>`).join("");
+      }
+      if (companyEl) {
+        const companies = Array.from(new Set(orders.map(o => o.company_name).filter(Boolean)));
+        companyEl.innerHTML = '<option value="">All companies</option>' + companies.map(c => `<option>${escapeHtml(c)}</option>`).join("");
+      }
+    };
+
+    const exportCsv = () => {
+      const list = applyFilters();
+      const rows = [
+        ["Date","Customer","Company","Agent","Item","Country","Total IQD","Status","Reference"],
+        ...list.map(o => [
+          fmtDate(o.created_at),
+          o.customer_name || "",
+          o.company_name || "",
+          o.agent_name || "",
+          o.bundle_description || o.bundle_name || "eSIM",
+          o.country_name || "",
+          o.total_iqd || "",
+          o.status || "",
+          o.order_reference || "",
+        ])
+      ];
+      const csv = rows.map(r => r.map(v => `"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `esim_orders_${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    };
+
+    tabBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        tabBtns.forEach(b => b.classList.remove("is-active"));
+        btn.classList.add("is-active");
+        statusFilter = btn.dataset.status || "all";
+        renderRows();
+      });
+    });
+
+    searchEl?.addEventListener("input", renderRows);
+    agentEl?.addEventListener("change", renderRows);
+    companyEl?.addEventListener("change", renderRows);
+    clearBtn?.addEventListener("click", () => {
+      if (searchEl) searchEl.value = "";
+      if (agentEl) agentEl.value = "";
+      if (companyEl) companyEl.value = "";
+      statusFilter = "all";
+      tabBtns.forEach(b => b.classList.remove("is-active"));
+      document.querySelector('.report-tab[data-status="all"]').classList.add("is-active");
+      renderRows();
+    });
+    exportBtn?.addEventListener("click", exportCsv);
+
+    fetch("/reports/esim/api/list")
+      .then(r => r.json())
+      .then(data => {
+        orders = data.orders || [];
+        refreshFilters();
+        renderRows();
+      })
+      .catch(() => {
+        if (rowsEl) rowsEl.innerHTML = '<div class="p-4 text-muted">Failed to load orders.</div>';
+      });
+  });
+</script>
+{% endblock %}

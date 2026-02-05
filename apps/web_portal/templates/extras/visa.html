@@ -1,0 +1,627 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <div class="h5 mb-1">Visa</div>
+          <div class="text-muted small">Create, submit, and track visa applications.</div>
+        </div>
+        <div class="input-group input-group-sm" style="max-width: 320px;">
+          <span class="input-group-text">Search</span>
+          <input class="form-control" id="visaSearch" placeholder="Passport / passenger / country"/>
+        </div>
+      </div>
+
+      <hr class="my-3"/>
+
+      <ul class="nav nav-pills gap-2" id="visaTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tabCreate" data-bs-toggle="pill" data-bs-target="#paneCreate" type="button" role="tab">Create application</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tabVendorSubmit" data-bs-toggle="pill" data-bs-target="#paneVendorSubmit" type="button" role="tab">Submit via vendor</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tabApplications" data-bs-toggle="pill" data-bs-target="#paneApplications" type="button" role="tab">Applications</button>
+        </li>
+        {% if current_user and has_visa_vendor %}
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tabVendorPanel" data-bs-toggle="pill" data-bs-target="#paneVendorPanel" type="button" role="tab">Vendor panel</button>
+        </li>
+        {% endif %}
+      </ul>
+
+      <div class="tab-content mt-3">
+        <div class="tab-pane fade show active" id="paneCreate" role="tabpanel">
+          <div class="row g-3">
+            <div class="col-12 col-lg-7">
+              <div class="fw-semibold mb-2">Direct submission</div>
+              <form id="visaCreateForm" class="row g-2">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1">Passport number *</label>
+                  <input class="form-control" name="passport" required/>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1">Destination country *</label>
+                  <input class="form-control" name="country" required/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notes</label>
+                  <textarea class="form-control" name="notes" rows="2"></textarea>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1">Passport scans</label>
+                  <input class="form-control" type="file" name="passport_scan" multiple/>
+                </div>
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1">Photos</label>
+                  <input class="form-control" type="file" name="photo" multiple/>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-2">
+                  <button class="btn btn-primary" type="submit">Submit application</button>
+                  <span class="text-muted small">Status starts as pending.</span>
+                </div>
+              </form>
+            </div>
+            <div class="col-12 col-lg-5">
+              <div class="fw-semibold mb-2">Status</div>
+              <div id="visaCreateStatus" class="alert alert-light border mb-0">Ready.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="paneVendorSubmit" role="tabpanel">
+          <div class="row g-3">
+            <div class="col-12 col-lg-7">
+              <div class="fw-semibold mb-2">Vendor offers</div>
+              <div id="vendorOffers" class="text-muted">Loading…</div>
+            </div>
+            <div class="col-12 col-lg-5">
+              <div class="fw-semibold mb-2">Vendor submission</div>
+              <div id="vendorSelection" class="alert alert-light border small">Choose a vendor offer to continue.</div>
+              <form id="visaVendorForm" class="row g-2">
+                <input type="hidden" name="vendor_id" id="vendorId"/>
+                <input type="hidden" name="price" id="vendorPrice"/>
+                <input type="hidden" name="currency" id="vendorCurrency"/>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Passport number *</label>
+                  <input class="form-control" name="passport" id="vendorPassport" required/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Destination country *</label>
+                  <input class="form-control" name="country" id="vendorCountry" required/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notes</label>
+                  <textarea class="form-control" name="notes" rows="2"></textarea>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Passport scans</label>
+                  <input class="form-control" type="file" name="passport_scan" multiple/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Photos</label>
+                  <input class="form-control" type="file" name="photo" multiple/>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-2">
+                  <button class="btn btn-primary" type="submit">Submit via vendor</button>
+                  <button class="btn btn-outline-secondary" type="button" id="vendorClear">Clear selection</button>
+                </div>
+              </form>
+              <div id="visaVendorStatus" class="alert alert-light border mt-3 mb-0">Ready.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane fade" id="paneApplications" role="tabpanel">
+          <div class="fw-semibold mb-2">Applications & status</div>
+          <div id="visaList" class="text-muted">Loading…</div>
+        </div>
+
+        {% if current_user and has_visa_vendor %}
+        <div class="tab-pane fade" id="paneVendorPanel" role="tabpanel">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <div class="fw-semibold mb-2">My visa offers</div>
+              <form id="vendorOfferForm" class="row g-2 mb-3">
+                <div class="col-12 col-md-6">
+                  <label class="form-label small text-muted mb-1">Country *</label>
+                  <input class="form-control" name="country" required/>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small text-muted mb-1">Price *</label>
+                  <input class="form-control" name="price" required/>
+                </div>
+                <div class="col-12 col-md-3">
+                  <label class="form-label small text-muted mb-1">Currency</label>
+                  <input class="form-control" name="currency" value="IQD"/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notes</label>
+                  <input class="form-control" name="notes"/>
+                </div>
+                <div class="col-12 d-flex align-items-center gap-2">
+                  <button class="btn btn-primary" type="submit">Add offer</button>
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="offerActive" name="active" checked>
+                    <label class="form-check-label" for="offerActive">Active</label>
+                  </div>
+                </div>
+              </form>
+              <div id="vendorOfferList" class="text-muted">Loading…</div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="fw-semibold mb-2">Assigned visas</div>
+              <div id="vendorAssignedList" class="text-muted">Loading…</div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const STATUS = ["pending", "approved", "rejected"];
+    const isVendor = {{ "true" if (current_user and has_visa_vendor) else "false" }};
+
+    const visaSearch = document.getElementById("visaSearch");
+    const visaList = document.getElementById("visaList");
+    const createForm = document.getElementById("visaCreateForm");
+    const createStatus = document.getElementById("visaCreateStatus");
+
+    const vendorOffers = document.getElementById("vendorOffers");
+    const vendorSelection = document.getElementById("vendorSelection");
+    const vendorForm = document.getElementById("visaVendorForm");
+    const vendorStatus = document.getElementById("visaVendorStatus");
+    const vendorClear = document.getElementById("vendorClear");
+    const vendorId = document.getElementById("vendorId");
+    const vendorCountry = document.getElementById("vendorCountry");
+    const vendorPrice = document.getElementById("vendorPrice");
+    const vendorCurrency = document.getElementById("vendorCurrency");
+
+    const vendorOfferForm = document.getElementById("vendorOfferForm");
+    const vendorOfferList = document.getElementById("vendorOfferList");
+    const vendorAssignedList = document.getElementById("vendorAssignedList");
+
+    let selectedOffer = null;
+
+    const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const fmtMoney = (val) => {
+      const n = Number(val || 0);
+      if (!Number.isFinite(n)) return String(val || "0");
+      return new Intl.NumberFormat("en-US").format(n);
+    };
+    const fmtDate = (iso) => {
+      if (!iso) return "";
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString();
+    };
+
+    const setStatus = (el, msg, kind="light") => {
+      if (!el) return;
+      el.className = "alert alert-" + kind + " border";
+      el.textContent = msg;
+    };
+
+    const renderAttachments = (atts=[]) => {
+      if (!Array.isArray(atts) || !atts.length) return "";
+      let html = '<div class="mt-2 small">Attachments: ';
+      html += atts.map(a => {
+        const label = esc((a && a.type) ? a.type.replaceAll("_", " ") : "file");
+        const name = esc((a && a.name) || "");
+        const url = esc((a && a.url) || "#");
+        return `<a href="${url}" target="_blank">${label}${name ? " (" + name + ")" : ""}</a>`;
+      }).join(" · ");
+      html += "</div>";
+      return html;
+    };
+
+    const statusBadge = (s) => {
+      const v = String(s || "pending").toLowerCase();
+      const cls = v === "approved" ? "success" : (v === "rejected" ? "danger" : "warning");
+      return `<span class="badge text-bg-${cls}">${esc(v)}</span>`;
+    };
+
+    const renderVisaItem = (v, context="owner") => {
+      const status = String(v.status || "pending").toLowerCase();
+      const channel = (v.channel || "direct").toLowerCase();
+      const vendorLine = channel === "vendor"
+        ? `<div class="text-muted small">Vendor: ${esc(v.vendor_name || v.vendor_id || "")} • ${fmtMoney(v.vendor_price || 0)} ${esc(v.vendor_currency || "IQD")}</div>`
+        : `<div class="text-muted small">Channel: Direct</div>`;
+      const passengerLine = v.passenger_name ? `Passenger: ${esc(v.passenger_name)}` : "Passenger: —";
+      const createdLine = v.created_at ? `Created: ${esc(fmtDate(v.created_at))}` : "";
+
+      let opts = "";
+      for (const s of STATUS) {
+        opts += `<option value="${s}" ${s === status ? "selected" : ""}>${s}</option>`;
+      }
+
+      return `
+        <div class="list-group-item">
+          <div class="d-flex align-items-start justify-content-between gap-3">
+            <div>
+              <div class="fw-semibold">${esc(v.passport_number || "")} • ${esc(v.destination_country || "")}</div>
+              <div class="text-muted small">${passengerLine}</div>
+              ${vendorLine}
+              ${createdLine ? `<div class="text-muted small">${createdLine}</div>` : ""}
+              ${renderAttachments(v.attachments || [])}
+            </div>
+            <div class="d-flex flex-column align-items-end gap-2">
+              ${statusBadge(status)}
+              <div class="input-group input-group-sm" style="min-width: 170px;">
+                <select class="form-select form-select-sm" data-status-select="${esc(v.id)}">
+                  ${opts}
+                </select>
+                <button class="btn btn-outline-primary" data-status-update="${esc(v.id)}">Update</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderVisaList = (items, targetEl, emptyLabel) => {
+      if (!targetEl) return;
+      if (!Array.isArray(items) || !items.length) {
+        targetEl.innerHTML = `<div class="text-muted">${esc(emptyLabel || "No applications.")}</div>`;
+        return;
+      }
+      let html = '<div class="list-group rounded-3 overflow-hidden">';
+      for (const v of items) html += renderVisaItem(v);
+      html += "</div>";
+      targetEl.innerHTML = html;
+    };
+
+    const loadApplications = async (q="") => {
+      if (!visaList) return;
+      visaList.textContent = "Loading…";
+      try {
+        const r = await fetch("/visa/api/list?q=" + encodeURIComponent(q || ""));
+        const data = await r.json();
+        if (data.status !== "ok") {
+          visaList.textContent = data.error || "Failed to load.";
+          return;
+        }
+        renderVisaList(data.visas || [], visaList, "No applications yet.");
+      } catch (e) {
+        visaList.textContent = String(e || "Failed to load.");
+      }
+    };
+
+    const updateStatus = async (visaId, status) => {
+      try {
+        const r = await fetch(`/visa/api/${encodeURIComponent(visaId)}/status`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status })
+        });
+        const data = await r.json();
+        if (data.status !== "ok") {
+          alert(data.error || "Failed to update.");
+          return false;
+        }
+        return true;
+      } catch (e) {
+        alert(String(e || "Failed to update."));
+        return false;
+      }
+    };
+
+    const submitForm = async (form, statusEl, extra = {}) => {
+      if (!form) return;
+      const fd = new FormData(form);
+      for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+      setStatus(statusEl, "Submitting…", "info");
+      try {
+        const r = await fetch("/visa/api/create", { method: "POST", body: fd });
+        const data = await r.json();
+        if (data.status !== "ok") {
+          setStatus(statusEl, data.error || "Failed to submit.", "danger");
+          return false;
+        }
+        form.reset();
+        setStatus(statusEl, "Application submitted.", "success");
+        await loadApplications(visaSearch ? visaSearch.value : "");
+        return true;
+      } catch (e) {
+        setStatus(statusEl, String(e || "Failed to submit."), "danger");
+        return false;
+      }
+    };
+
+    const clearVendorSelection = () => {
+      selectedOffer = null;
+      if (vendorSelection) vendorSelection.textContent = "Choose a vendor offer to continue.";
+      if (vendorId) vendorId.value = "";
+      if (vendorPrice) vendorPrice.value = "";
+      if (vendorCurrency) vendorCurrency.value = "";
+      if (vendorCountry) {
+        vendorCountry.value = "";
+        vendorCountry.removeAttribute("readonly");
+      }
+    };
+
+    const selectVendorOffer = (offer) => {
+      selectedOffer = offer;
+      if (vendorId) vendorId.value = offer.vendor_id || "";
+      if (vendorPrice) vendorPrice.value = offer.price || "";
+      if (vendorCurrency) vendorCurrency.value = offer.currency || "IQD";
+      if (vendorCountry) {
+        vendorCountry.value = offer.country || "";
+        vendorCountry.setAttribute("readonly", "readonly");
+      }
+      if (vendorSelection) {
+        vendorSelection.innerHTML = `
+          <div class="fw-semibold">Selected: ${esc(offer.vendor_name || "")}</div>
+          <div>${esc(offer.country || "")} • ${fmtMoney(offer.price || 0)} ${esc(offer.currency || "IQD")}</div>
+        `;
+      }
+    };
+
+    const loadVendors = async () => {
+      if (!vendorOffers) return;
+      vendorOffers.textContent = "Loading…";
+      try {
+        const r = await fetch("/visa/api/vendors");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          vendorOffers.textContent = data.error || "Failed to load vendors.";
+          return;
+        }
+        const vendors = data.vendors || [];
+        let rows = [];
+        for (const v of vendors) {
+          const prices = Array.isArray(v.prices) ? v.prices : [];
+          if (!prices.length) {
+            rows.push({
+              vendor_id: v.id,
+              vendor_name: v.name,
+              country: "—",
+              price: 0,
+              currency: "IQD",
+              notes: "No active offers",
+              disabled: true,
+            });
+          } else {
+            for (const p of prices) {
+              rows.push({
+                vendor_id: v.id,
+                vendor_name: v.name,
+                country: p.country || "",
+                price: p.price || 0,
+                currency: p.currency || "IQD",
+                notes: p.notes || "",
+                disabled: false,
+              });
+            }
+          }
+        }
+        if (!rows.length) {
+          vendorOffers.innerHTML = '<div class="text-muted">No vendors available.</div>';
+          return;
+        }
+        let html = '<div class="table-responsive"><table class="table table-sm align-middle">';
+        html += '<thead><tr><th>Vendor</th><th>Country</th><th>Price</th><th>Notes</th><th></th></tr></thead><tbody>';
+        for (const row of rows) {
+          const priceStr = row.disabled ? "—" : `${fmtMoney(row.price)} ${esc(row.currency)}`;
+          html += `
+            <tr>
+              <td>${esc(row.vendor_name || "")}</td>
+              <td>${esc(row.country || "")}</td>
+              <td>${priceStr}</td>
+              <td class="text-muted small">${esc(row.notes || "")}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary" data-vendor-select="1" data-vendor-id="${esc(row.vendor_id)}" data-vendor-name="${esc(row.vendor_name)}" data-country="${esc(row.country || "")}" data-price="${esc(row.price)}" data-currency="${esc(row.currency)}" ${row.disabled ? "disabled" : ""}>
+                  Select
+                </button>
+              </td>
+            </tr>`;
+        }
+        html += "</tbody></table></div>";
+        vendorOffers.innerHTML = html;
+      } catch (e) {
+        vendorOffers.textContent = String(e || "Failed to load vendors.");
+      }
+    };
+
+    const loadVendorOffers = async () => {
+      if (!vendorOfferList) return;
+      vendorOfferList.textContent = "Loading…";
+      try {
+        const r = await fetch("/visa/api/vendor/offers");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          vendorOfferList.textContent = data.error || "Failed to load offers.";
+          return;
+        }
+        const offers = data.offers || [];
+        if (!offers.length) {
+          vendorOfferList.innerHTML = '<div class="text-muted">No offers yet.</div>';
+          return;
+        }
+        let html = '<div class="list-group rounded-3 overflow-hidden">';
+        for (const o of offers) {
+          html += `
+            <div class="list-group-item d-flex align-items-start justify-content-between gap-3">
+              <div>
+                <div class="fw-semibold">${esc(o.country || "")}</div>
+                <div class="text-muted small">${fmtMoney(o.price || 0)} ${esc(o.currency || "IQD")}</div>
+                ${o.notes ? `<div class="text-muted small">${esc(o.notes)}</div>` : ""}
+                <div class="text-muted small">Status: ${o.active === false ? "inactive" : "active"}</div>
+              </div>
+              <button class="btn btn-sm btn-outline-danger" data-offer-delete="${esc(o.id)}">Delete</button>
+            </div>
+          `;
+        }
+        html += "</div>";
+        vendorOfferList.innerHTML = html;
+      } catch (e) {
+        vendorOfferList.textContent = String(e || "Failed to load offers.");
+      }
+    };
+
+    const loadVendorAssigned = async () => {
+      if (!vendorAssignedList) return;
+      vendorAssignedList.textContent = "Loading…";
+      try {
+        const r = await fetch("/visa/api/vendor/assigned");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          vendorAssignedList.textContent = data.error || "Failed to load.";
+          return;
+        }
+        renderVisaList(data.visas || [], vendorAssignedList, "No assigned visas yet.");
+      } catch (e) {
+        vendorAssignedList.textContent = String(e || "Failed to load.");
+      }
+    };
+
+    if (createForm) {
+      createForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        submitForm(createForm, createStatus, { channel: "direct" });
+      });
+    }
+
+    if (vendorForm) {
+      vendorForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!selectedOffer || !vendorId.value) {
+          setStatus(vendorStatus, "Please select a vendor offer first.", "warning");
+          return;
+        }
+        const ok = await submitForm(vendorForm, vendorStatus, {
+          channel: "vendor",
+          vendor_id: vendorId.value,
+          price: vendorPrice.value,
+          currency: vendorCurrency.value
+        });
+        if (ok) clearVendorSelection();
+      });
+    }
+
+    if (vendorClear) {
+      vendorClear.addEventListener("click", clearVendorSelection);
+    }
+
+    if (vendorOffers) {
+      vendorOffers.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-vendor-select]");
+        if (!btn) return;
+        const offer = {
+          vendor_id: btn.getAttribute("data-vendor-id") || "",
+          vendor_name: btn.getAttribute("data-vendor-name") || "",
+          country: btn.getAttribute("data-country") || "",
+          price: btn.getAttribute("data-price") || "",
+          currency: btn.getAttribute("data-currency") || "IQD"
+        };
+        selectVendorOffer(offer);
+      });
+    }
+
+    if (visaList) {
+      visaList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-status-update]");
+        if (!btn) return;
+        const visaId = btn.getAttribute("data-status-update");
+        const sel = visaList.querySelector(`[data-status-select="${visaId}"]`);
+        const status = sel ? sel.value : "pending";
+        const ok = await updateStatus(visaId, status);
+        if (ok) await loadApplications(visaSearch ? visaSearch.value : "");
+      });
+    }
+
+    if (vendorAssignedList) {
+      vendorAssignedList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-status-update]");
+        if (!btn) return;
+        const visaId = btn.getAttribute("data-status-update");
+        const sel = vendorAssignedList.querySelector(`[data-status-select="${visaId}"]`);
+        const status = sel ? sel.value : "pending";
+        const ok = await updateStatus(visaId, status);
+        if (ok) await loadVendorAssigned();
+      });
+    }
+
+    if (vendorOfferList) {
+      vendorOfferList.addEventListener("click", async (e) => {
+        const btn = e.target.closest("[data-offer-delete]");
+        if (!btn) return;
+        const offerId = btn.getAttribute("data-offer-delete");
+        if (!offerId) return;
+        if (!confirm("Delete this offer?")) return;
+        try {
+          const r = await fetch(`/visa/api/vendor/offer/${encodeURIComponent(offerId)}/delete`, { method: "POST" });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            alert(data.error || "Failed to delete.");
+            return;
+          }
+          await loadVendorOffers();
+          await loadVendors();
+        } catch (e2) {
+          alert(String(e2 || "Failed to delete."));
+        }
+      });
+    }
+
+    if (vendorOfferForm) {
+      vendorOfferForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const fd = new FormData(vendorOfferForm);
+        const payload = {
+          country: fd.get("country"),
+          price: fd.get("price"),
+          currency: fd.get("currency"),
+          notes: fd.get("notes"),
+          active: fd.get("active") ? "true" : "false"
+        };
+        try {
+          const r = await fetch("/visa/api/vendor/offer", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            alert(data.error || "Failed to add offer.");
+            return;
+          }
+          vendorOfferForm.reset();
+          const activeCheck = document.getElementById("offerActive");
+          if (activeCheck) activeCheck.checked = true;
+          await loadVendorOffers();
+          await loadVendors();
+        } catch (e2) {
+          alert(String(e2 || "Failed to add offer."));
+        }
+      });
+    }
+
+    if (visaSearch) {
+      let t = null;
+      visaSearch.addEventListener("input", () => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => loadApplications(visaSearch.value), 250);
+      });
+    }
+
+    loadApplications("");
+    loadVendors();
+    if (isVendor) {
+      loadVendorOffers();
+      loadVendorAssigned();
+    }
+  });
+</script>
+{% endblock %}

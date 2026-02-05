@@ -1,0 +1,107 @@
+<div class="card search-card nav-panel search-box-card h-100" style="width: 100%;">
+  <div class="card-body search-box-body d-flex flex-column">
+    <div class="panel-header">
+      <div class="panel-title">Search</div>
+      <div class="panel-subtitle">Find the best flights fast</div>
+    </div>
+
+    {% if errors %}
+      <div class="alert alert-danger mt-2 mb-0">
+        <div class="fw-semibold mb-1">Please fix the following:</div>
+        <ul class="mb-0">
+          {% for e in errors %}
+            <li>{{ e }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    {% if debug_error %}
+      <div class="alert alert-warning mt-2 mb-0">
+        <div class="fw-semibold mb-1">API error</div>
+        <div class="small text-break">{{ debug_error }}</div>
+      </div>
+    {% endif %}
+
+    <form method="post" action="/search" class="vstack gap-2 mt-2 mobile-search-form search-box-form d-flex flex-column" data-search-form>
+      <div class="list-group nav-list search-list">
+        <div class="list-group-item search-row">
+          <div class="mobile-route">
+            <div class="mobile-field">
+              <label class="form-label mb-1">From</label>
+              <input class="form-control text-uppercase" name="from_code" value="{{ defaults.from_code }}" maxlength="3" required>
+            </div>
+
+            <div class="mobile-field">
+              <label class="form-label mb-1">To</label>
+              <input class="form-control text-uppercase" name="to_code" value="{{ defaults.to_code }}" maxlength="3" required>
+            </div>
+
+            <button class="swap-btn d-md-none" type="button" data-swap>Swap</button>
+          </div>
+        </div>
+
+        <div class="list-group-item search-row">
+          <div class="trip-block mobile-field">
+            <label class="form-label mb-1">Trip</label>
+            <div class="btn-group w-100 trip-tabs" role="group" aria-label="Trip type">
+              <input type="radio" class="btn-check" name="trip_type" id="tripOneWay" value="oneway" autocomplete="off"
+                     {% if defaults.trip_type != 'roundtrip' %}checked{% endif %}>
+              <label class="btn btn-outline-secondary" for="tripOneWay">One way</label>
+
+              <input type="radio" class="btn-check" name="trip_type" id="tripRoundTrip" value="roundtrip" autocomplete="off"
+                     {% if defaults.trip_type == 'roundtrip' %}checked{% endif %}>
+              <label class="btn btn-outline-secondary" for="tripRoundTrip">Round trip</label>
+
+              <button class="btn btn-outline-secondary d-md-none" type="button" disabled>Multi city</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="list-group-item search-row">
+          <div class="row g-2 mobile-date-row">
+            <div class="col mobile-field">
+              <label class="form-label mb-1">Departure date</label>
+              <input class="form-control" type="date" name="date" value="{{ defaults.date }}" required>
+            </div>
+            <div class="col mobile-field">
+              <label class="form-label mb-1">Return date</label>
+              <input class="form-control" type="date" name="return_date" id="returnDate" value="{{ defaults.return_date }}"
+                     {% if defaults.trip_type != 'roundtrip' %}disabled{% endif %}
+                     {% if defaults.trip_type == 'roundtrip' %}required{% endif %}>
+            </div>
+          </div>
+        </div>
+
+        <div class="list-group-item search-row">
+          <div class="mobile-field">
+            <label class="form-label mb-1">Cabin</label>
+            <select class="form-select" name="cabin" required>
+              <option value="economy" {% if (defaults.cabin or 'economy') == 'economy' %}selected{% endif %}>Economy</option>
+              <option value="business" {% if (defaults.cabin or 'economy') == 'business' %}selected{% endif %}>Business</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="list-group-item search-row">
+          <div class="row g-2 mobile-pax-row">
+            <div class="col mobile-field">
+              <label class="form-label mb-1">Adult</label>
+              <input class="form-control" type="number" name="adults" min="1" max="9" value="{{ defaults.adults if defaults.adults is not none else 1 }}" required>
+            </div>
+            <div class="col mobile-field">
+              <label class="form-label mb-1">Child</label>
+              <input class="form-control" type="number" name="children" min="0" max="9" value="{{ defaults.children if defaults.children is not none else 0 }}" required>
+            </div>
+            <div class="col mobile-field">
+              <label class="form-label mb-1">Infant</label>
+              <input class="form-control" type="number" name="infants" min="0" max="9" value="{{ defaults.infants if defaults.infants is not none else 0 }}" required>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary w-100 mobile-search-submit search-submit" type="submit">Search</button>
+    </form>
+  </div>
+</div>

@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div>
+          <div class="h5 mb-1">Admin • Subscriptions</div>
+          <div class="text-muted small">Manage all subscriptions: edit, suspend, delete.</div>
+        </div>
+      </div>
+
+      <hr class="my-3"/>
+
+      <div class="row g-3">
+        <div class="col-12 col-lg-7">
+          <div class="fw-semibold mb-2">Add-on prices</div>
+          <div id="adminAddonPrices" class="text-muted">Loading…</div>
+        </div>
+        <div class="col-12 col-lg-5">
+          <div class="fw-semibold mb-2">Grant add-on (free)</div>
+          <form id="adminGrantForm" class="row g-2">
+            <div class="col-12">
+              <label class="form-label small text-muted mb-1">User</label>
+              <select class="form-select form-select-sm" id="grantUser" required></select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small text-muted mb-1">Add-on</label>
+              <select class="form-select form-select-sm" id="grantAddon" required></select>
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label small text-muted mb-1">Period</label>
+              <select class="form-select form-select-sm" id="grantPeriod" required>
+                <option value="monthly">monthly</option>
+                <option value="yearly">yearly</option>
+              </select>
+            </div>
+            <div class="col-12 d-flex align-items-center gap-2">
+              <button class="btn btn-sm btn-primary" type="submit">Grant for free</button>
+              <div id="grantStatus" class="text-muted small">Ready.</div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <hr class="my-3"/>
+
+      <div id="adminSubsStatus" class="alert alert-light border">Loading…</div>
+      <div id="adminSubsTable" class="mt-3"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const statusEl = document.getElementById("adminSubsStatus");
+    const tableEl = document.getElementById("adminSubsTable");
+    const addonPricesEl = document.getElementById("adminAddonPrices");
+    const grantForm = document.getElementById("adminGrantForm");
+    const grantStatus = document.getElementById("grantStatus");
+    const grantUser = document.getElementById("grantUser");
+    const grantAddon = document.getElementById("grantAddon");
+    const grantPeriod = document.getElementById("grantPeriod");
+
+    const esc = (s) => String(s || "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const setStatus = (t, k="light") => { statusEl.className = "alert alert-" + k; statusEl.innerText = t; };
+    const setGrantStatus = (t, k="muted") => {
+      if (!grantStatus) return;
+      grantStatus.className = "text-" + k + " small";
+      grantStatus.innerText = t;
+    };
+
+    let addonsCache = {};
+
+    const load = async () => {
+      setStatus("Loading…", "light");
+      tableEl.innerHTML = "";
+      try {
+        const r = await fetch("/admin/subscriptions/api/list");
+        const data = await r.json();
+        if (data.status !== "ok") { setStatus(data.error || "Forbidden.", "danger"); return; }
+        setStatus("Loaded.", "success");
+
+        addonsCache = data.addons || {};
+        renderAddons(addonsCache);
+
+        const subs = data.subscriptions || [];
+        if (!subs.length) {
+          tableEl.innerHTML = '<div class="text-muted">No subscriptions.</div>';
+          return;
+        }
+
+        let html = `
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Owner</th>
+                  <th>Add-on</th>
+                  <th>Period</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Start</th>
+                  <th>Expires</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+        `;
+
+        for (const s of subs) {
+          html += `
+            <tr>
+              <td>${esc(s.owner_name || s.owner_user_id || "")}</td>
+              <td>${esc(s.addon_name || s.addon)}</td>
+              <td>${esc((s.period || "").toString().slice(0,1).toUpperCase() + (s.period || "").toString().slice(1))}</td>
+              <td>${(Number(s.price || 0) <= 0 || s.payment_method === "admin_grant") ? "Free" : "Paid"}</td>
+              <td>
+                <select class="form-select form-select-sm" data-status="${esc(s.id)}">
+                  <option value="active" ${s.status === "active" ? "selected": ""}>active</option>
+                  <option value="suspended" ${s.status === "suspended" ? "selected": ""}>suspended</option>
+                  <option value="expired" ${s.status === "expired" ? "selected": ""}>expired</option>
+                </select>
+              </td>
+              <td class="text-muted small">${esc(s.start_at)}</td>
+              <td class="text-muted small">${esc(s.end_at)}</td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-primary" data-save="${esc(s.id)}">Save</button>
+                <button class="btn btn-sm btn-outline-danger" data-del="${esc(s.id)}">Delete</button>
+              </td>
+            </tr>
+          `;
+        }
+
+        html += "</tbody></table></div>";
+        tableEl.innerHTML = html;
+
+        tableEl.querySelectorAll("[data-save]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-save");
+            const status = tableEl.querySelector(`[data-status="${CSS.escape(id)}"]`)?.value || "active";
+            btn.disabled = true;
+            try {
+              const r2 = await fetch(`/admin/subscriptions/api/${encodeURIComponent(id)}/update`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({status})
+              });
+              const d2 = await r2.json();
+              if (d2.status !== "ok") alert(d2.error || "Failed");
+              else alert("Updated");
+            } finally {
+              btn.disabled = false;
+              await load();
+            }
+          });
+        });
+
+        tableEl.querySelectorAll("[data-del]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            const id = btn.getAttribute("data-del");
+            if (!confirm("Delete this subscription?")) return;
+            btn.disabled = true;
+            try {
+              const r2 = await fetch(`/admin/subscriptions/api/${encodeURIComponent(id)}/delete`, {method: "POST"});
+              const d2 = await r2.json();
+              if (d2.status !== "ok") alert(d2.error || "Failed");
+              else alert("Deleted");
+            } finally {
+              btn.disabled = false;
+              await load();
+            }
+          });
+        });
+
+      } catch (e) {
+        setStatus(String(e || "Failed."), "danger");
+      }
+    };
+
+    const renderAddons = (addons) => {
+      if (!addonPricesEl) return;
+      loadAddonOptions(addons);
+      const keys = Object.keys(addons || {});
+      if (!keys.length) {
+        addonPricesEl.innerHTML = '<div class="text-muted">No add-ons configured.</div>';
+        return;
+      }
+      let html = `
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Add-on</th>
+                <th>Monthly</th>
+                <th>Yearly</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      for (const [id, a] of Object.entries(addons)) {
+        html += `
+          <tr>
+            <td>
+              <div class="fw-semibold">${esc(a.name || id)}</div>
+              ${a.description ? `<div class="text-muted small">${esc(a.description)}</div>` : ""}
+            </td>
+            <td>
+              <input class="form-control form-control-sm" data-addon-monthly="${esc(id)}" value="${esc(a.monthly_price)}"/>
+            </td>
+            <td>
+              <input class="form-control form-control-sm" data-addon-yearly="${esc(id)}" value="${esc(a.yearly_price)}"/>
+            </td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-outline-primary" data-addon-save="${esc(id)}">Save</button>
+            </td>
+          </tr>
+        `;
+      }
+      html += "</tbody></table></div>";
+      addonPricesEl.innerHTML = html;
+
+      addonPricesEl.querySelectorAll("[data-addon-save]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-addon-save");
+          const monthly = addonPricesEl.querySelector(`[data-addon-monthly="${CSS.escape(id)}"]`)?.value;
+          const yearly = addonPricesEl.querySelector(`[data-addon-yearly="${CSS.escape(id)}"]`)?.value;
+          btn.disabled = true;
+          try {
+            const r2 = await fetch("/admin/subscriptions/api/addons/update", {
+              method: "POST",
+              headers: {"Content-Type": "application/json"},
+              body: JSON.stringify({addon: id, monthly_price: monthly, yearly_price: yearly})
+            });
+            const d2 = await r2.json();
+            if (d2.status !== "ok") alert(d2.error || "Failed");
+            else alert("Updated");
+          } finally {
+            btn.disabled = false;
+            await load();
+          }
+        });
+      });
+    };
+
+    const loadUsers = async () => {
+      if (!grantUser) return;
+      grantUser.innerHTML = "";
+      try {
+        const r = await fetch("/admin/users/api/list");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          grantUser.innerHTML = '<option value="">Failed to load users</option>';
+          return;
+        }
+        const users = data.users || [];
+        if (!users.length) {
+          grantUser.innerHTML = '<option value="">No users</option>';
+          return;
+        }
+        let opts = '<option value="" disabled selected>Select user</option>';
+        for (const u of users) {
+          opts += `<option value="${esc(u.id)}">${esc(u.label)} (${esc(u.role || "user")})</option>`;
+        }
+        grantUser.innerHTML = opts;
+      } catch (e) {
+        grantUser.innerHTML = '<option value="">Failed to load users</option>';
+      }
+    };
+
+    const loadAddonOptions = (addons) => {
+      if (!grantAddon) return;
+      let opts = '<option value="" disabled selected>Select add-on</option>';
+      for (const [id, a] of Object.entries(addons || {})) {
+        opts += `<option value="${esc(id)}">${esc(a.name || id)}</option>`;
+      }
+      grantAddon.innerHTML = opts;
+    };
+
+    if (grantForm) {
+      grantForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (!grantUser || !grantAddon || !grantPeriod) return;
+        const user_id = grantUser.value;
+        const addon = grantAddon.value;
+        const period = grantPeriod.value;
+        if (!user_id || !addon || !period) return;
+        setGrantStatus("Granting…", "muted");
+        try {
+          const r = await fetch("/admin/subscriptions/api/grant", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({user_id, addon, period})
+          });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            setGrantStatus(data.error || "Failed.", "danger");
+          } else {
+            setGrantStatus("Granted.", "success");
+            await load();
+          }
+        } catch (e2) {
+          setGrantStatus(String(e2 || "Failed."), "danger");
+        }
+      });
+    }
+
+    load();
+    loadUsers();
+  });
+</script>
+{% endblock %}

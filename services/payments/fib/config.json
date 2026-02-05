@@ -1,0 +1,13 @@
+{
+  "detail": "Not Found",
+  "accounts": [
+    {
+      "id": "2e876980-4e03-40e3-949f-2a10ea4706c6",
+      "label": "Wings Terminal",
+      "client_id": "pg-laveen",
+      "client_secret": "df4f5de5-49e5-485e-a69a-78c716526c71",
+      "base_url": "https://fib.prod.fib.iq"
+    }
+  ],
+  "active_account_id": "2e876980-4e03-40e3-949f-2a10ea4706c6"
+}

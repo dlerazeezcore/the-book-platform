@@ -1,0 +1,64 @@
+{
+  "pending": [
+    {
+      "id": "4c4ad4a1ce1140af929e5c83ecf7b1f3",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "12e976e2f044452e825fef7bde4351d3",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-04T11:59:43.768850Z",
+      "payload": {}
+    },
+    {
+      "id": "4787c78b981c4ea0b74a44049532c805",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "12e976e2f044452e825fef7bde4351d3",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-04T11:58:39.524485Z",
+      "payload": {}
+    },
+    {
+      "id": "d1a03db215564c3fb06075069af2c615",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-04T08:52:20.402023Z",
+      "payload": {}
+    },
+    {
+      "id": "582964c2131c42bb822dacd7e3513a3a",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-04T08:43:33.665549Z",
+      "payload": {}
+    },
+    {
+      "id": "10a563691dc947c29064a79e0ca15118",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-04T08:35:23.126115Z",
+      "payload": {}
+    },
+    {
+      "id": "8a84111686d648759aa7388600864c5f",
+      "kind": "credit_manual_ticketing",
+      "provider_id": "",
+      "requested_by_user_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "company_admin_id": "22d32cb80c5b439a96ecbc0746f1c793",
+      "reason": "Credit payment queued for manual ticketing.",
+      "created_at": "2026-02-03T15:44:02.725998Z",
+      "payload": {}
+    }
+  ]
+}

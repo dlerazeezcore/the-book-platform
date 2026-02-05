@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container app-shell py-4">
+  <div class="card search-card">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="h5 mb-1">Company Admin</div>
+          <div class="text-muted small">Manage your employees (sub users) for {{ (current_user.company_name if current_user and current_user.company_name is defined else (current_user.get('company_name') if current_user else '')) }}.</div>
+        </div>
+        <div class="d-flex gap-2">
+          <a class="btn btn-sm btn-outline-secondary" href="/">Back</a>
+        </div>
+      </div>
+
+      {% if err %}
+        <div class="alert alert-danger mt-3 mb-0" role="alert">{{ err }}</div>
+      {% endif %}
+
+      <hr class="my-3"/>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body">
+          <div class="fw-semibold mb-2">Create Sub User</div>
+          <form method="post" action="{{ request.url_for('company_admin_create_subuser') }}">
+            <div class="row g-2 align-items-end">
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">First name</label>
+                <input class="form-control" name="first_name" placeholder="First name" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Last name</label>
+                <input class="form-control" name="last_name" placeholder="Last name" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Position</label>
+                <input class="form-control" name="position" placeholder="Position" required>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small text-muted mb-1">Email</label>
+                <input class="form-control" type="email" name="email" placeholder="email@company.com" required>
+              </div>
+              <div class="col-md-2">
+                <label class="form-label small text-muted mb-1">Username</label>
+                <input class="form-control" name="username" placeholder="Username" required>
+              </div>
+              <div class="col-md-1">
+                <label class="form-label small text-muted mb-1">Password</label>
+                <input class="form-control" type="password" name="password" placeholder="••••" required>
+              </div>
+            </div>
+            <div class="mt-3">
+              <button class="btn btn-sm btn-dark" type="submit">Create</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm mt-3">
+        <div class="card-body">
+          <div class="fw-semibold mb-2">Sub Users</div>
+
+          {% if not subusers or subusers|length == 0 %}
+            <div class="text-muted small">No sub users yet.</div>
+          {% else %}
+            <div class="table-responsive">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr class="text-muted small">
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th style="min-width: 220px;">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for u in subusers %}
+                    <tr>
+                      <td>{{ (u.get('first_name','') ~ ' ' ~ u.get('last_name','')).strip() }}</td>
+                      <td>{{ u.get('position','') }}</td>
+                      <td>{{ u.get('username','') }}</td>
+                      <td>{{ u.get('email','') }}</td>
+                      <td>
+                        {% if u.get('active', True) %}
+                          <span class="badge text-bg-success">Active</span>
+                        {% else %}
+                          <span class="badge text-bg-secondary">Disabled</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="d-flex flex-wrap gap-2">
+                          <form method="post" action="{{ request.url_for('company_admin_sub_user_toggle', sub_id=u.get('id')) }}">
+                            {% if u.get('active', True) %}
+                              <button class="btn btn-sm btn-outline-warning" type="submit">Deactivate</button>
+                            {% else %}
+                              <button class="btn btn-sm btn-outline-success" type="submit">Activate</button>
+                            {% endif %}
+                          </form>
+
+                          <details>
+                            <summary class="btn btn-sm btn-outline-secondary">Edit</summary>
+                            <div class="border rounded-3 p-2 mt-2" style="min-width: 320px;">
+                              <form method="post" action="{{ request.url_for('company_admin_sub_user_update', sub_id=u.get('id')) }}">
+                                <div class="row g-2">
+                                  <div class="col-6">
+                                    <label class="form-label small text-muted mb-1">First name</label>
+                                    <input class="form-control form-control-sm" name="first_name" value="{{ u.get('first_name','') }}" required>
+                                  </div>
+                                  <div class="col-6">
+                                    <label class="form-label small text-muted mb-1">Last name</label>
+                                    <input class="form-control form-control-sm" name="last_name" value="{{ u.get('last_name','') }}" required>
+                                  </div>
+                                  <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">Position</label>
+                                    <input class="form-control form-control-sm" name="position" value="{{ u.get('position','') }}">
+                                  </div>
+                                  <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">Email</label>
+                                    <input class="form-control form-control-sm" type="email" name="email" value="{{ u.get('email','') }}">
+                                  </div>
+                                  <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">Username</label>
+                                    <input class="form-control form-control-sm" name="username" value="{{ u.get('username','') }}" required>
+                                  </div>
+                                  <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">New password (optional)</label>
+                                    <input class="form-control form-control-sm" type="password" name="new_password" placeholder="Leave blank to keep">
+                                  </div>
+                                  <div class="col-12">
+                                    <label class="form-label small text-muted mb-1">Status</label>
+                                    <select class="form-select form-select-sm" name="active">
+                                      <option value="1" {% if u.get('active', True) %}selected{% endif %}>Active</option>
+                                      <option value="0" {% if not u.get('active', True) %}selected{% endif %}>Disabled</option>
+                                    </select>
+                                  </div>
+                                </div>
+                                <div class="mt-2">
+                                  <button class="btn btn-sm btn-primary" type="submit">Save</button>
+                                </div>
+                              </form>
+                            </div>
+                          </details>
+                          <details data-user-addon-panel>
+                            <summary class="btn btn-sm btn-outline-dark d-inline-flex align-items-center gap-2">
+                              Add-ons
+                              <span class="badge text-bg-primary" data-addon-count>{{ (u.assigned_addons or [])|length }}</span>
+                            </summary>
+                            <div class="border rounded-3 p-2 mt-2" style="min-width: 360px;">
+                              {% if addons %}
+                                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                                  <input class="form-control form-control-sm" data-addon-search placeholder="Search add-ons...">
+                                </div>
+                                <div class="list-group list-group-flush">
+                                  {% for addon_id, addon in addons.items() %}
+                                    {% set assigned = addon_id in (u.assigned_addons or []) %}
+                                    {% set company_has = addon_id in (company_active_addons or []) %}
+                                    <div class="list-group-item" data-addon-row data-addon-id="{{ addon_id }}" data-addon-name="{{ (addon.name or addon_id)|lower }}">
+                                      <div class="d-flex align-items-start justify-content-between gap-2">
+                                        <div>
+                                          <div class="fw-semibold small">{{ addon.name or addon_id }}</div>
+                                          {% if addon.description %}
+                                            <div class="text-muted small">{{ addon.description }}</div>
+                                          {% endif %}
+                                          <div class="small mt-1">
+                                            {% if company_has %}
+                                              <span class="badge text-bg-{{ 'success' if assigned else 'secondary' }}" data-addon-status="{{ addon_id }}">
+                                                {{ 'Granted' if assigned else 'Not granted' }}
+                                              </span>
+                                            {% else %}
+                                              <span class="badge text-bg-warning" data-addon-status="{{ addon_id }}">Company not subscribed</span>
+                                            {% endif %}
+                                          </div>
+                                        </div>
+                                        <div>
+                                          {% if company_has %}
+                                            <button
+                                              type="button"
+                                              class="btn btn-sm {{ 'btn-outline-danger' if assigned else 'btn-outline-primary' }}"
+                                              data-addon-assign="{{ addon_id }}"
+                                              data-user-id="{{ u.get('id') }}"
+                                              data-grant="{{ '0' if assigned else '1' }}"
+                                            >
+                                              {{ 'Revoke' if assigned else 'Grant' }}
+                                            </button>
+                                          {% else %}
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" disabled>Inactive</button>
+                                          {% endif %}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  {% endfor %}
+                                </div>
+                              {% else %}
+                                <div class="text-muted small">No add-ons configured yet.</div>
+                              {% endif %}
+                            </div>
+                          </details>
+
+                        </div>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% block scripts %}
+{{ super() }}
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const updateCount = (panel) => {
+      if (!panel) return;
+      const countEl = panel.querySelector("[data-addon-count]");
+      if (!countEl) return;
+      const granted = panel.querySelectorAll('[data-addon-status].text-bg-success').length;
+      countEl.textContent = String(granted);
+    };
+
+    const applyGrantUI = (row, granted) => {
+      if (!row) return;
+      const statusEl = row.querySelector("[data-addon-status]");
+      const btn = row.querySelector("[data-addon-assign]");
+      if (statusEl) {
+        statusEl.className = "badge " + (granted ? "text-bg-success" : "text-bg-secondary");
+        statusEl.textContent = granted ? "Granted" : "Not granted";
+      }
+      if (btn) {
+        btn.classList.toggle("btn-outline-primary", !granted);
+        btn.classList.toggle("btn-outline-danger", granted);
+        btn.textContent = granted ? "Revoke" : "Grant";
+        btn.setAttribute("data-grant", granted ? "0" : "1");
+      }
+      updateCount(row.closest("[data-user-addon-panel]"));
+    };
+
+    const assignAddon = async (addon, user_id, grant) => {
+      const r = await fetch("/subscriptions/api/assign", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({addon, user_id, grant})
+      });
+      const data = await r.json();
+      if (data.status !== "ok") {
+        throw new Error(data.error || "Failed");
+      }
+      return data;
+    };
+
+    document.querySelectorAll("[data-addon-assign]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const addon = btn.getAttribute("data-addon-assign");
+        const user_id = btn.getAttribute("data-user-id");
+        const grant = btn.getAttribute("data-grant") === "1";
+        btn.disabled = true;
+        try {
+          await assignAddon(addon, user_id, grant);
+          const row = btn.closest("[data-addon-row]");
+          applyGrantUI(row, grant);
+        } catch (e) {
+          alert(String(e || "Failed"));
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+
+    document.querySelectorAll("[data-addon-search]").forEach(input => {
+      input.addEventListener("input", () => {
+        const q = (input.value || "").trim().toLowerCase();
+        const panel = input.closest("[data-user-addon-panel]");
+        if (!panel) return;
+        panel.querySelectorAll("[data-addon-row]").forEach(row => {
+          const name = row.getAttribute("data-addon-name") || "";
+          row.style.display = name.includes(q) ? "" : "none";
+        });
+      });
+    });
+
+  });
+</script>
+{% endblock %}
+
+{% endblock %}
