@@ -1063,6 +1063,7 @@ def _render(request: Request, template_name: str, context: dict | None = None):
         "request": request,
         "title": "The Book for now",
         "defaults": _default_search(),
+        "build_id": BUILD_ID,
         "app_product": APP_PRODUCT,
         "current_user": cu,
         "billing_user": billing_user,
@@ -1192,7 +1193,9 @@ def _load_users() -> list[dict]:
         users = _ensure_super_admin(users)
         return users
     except Exception:
-        return []
+        users = []
+        users = _ensure_super_admin(users)
+        return users
 
 
 def _save_users(users: list[dict]) -> None:
