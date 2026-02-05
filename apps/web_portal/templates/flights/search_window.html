@@ -115,6 +115,11 @@
     const fixed = document.getElementById("searchPanelFixed");
     if (anchor && fixed && !isMobile) {
       let baseTop = null;
+      const updateHeight = () => {
+        const top = Number.isFinite(baseTop) ? baseTop : 0;
+        const h = Math.max(0, window.innerHeight - top);
+        fixed.style.height = h ? h + "px" : "";
+      };
       const sync = (setTop = false) => {
         if (fixed.classList.contains("d-none")) return;
         const r = anchor.getBoundingClientRect();
@@ -124,10 +129,12 @@
           baseTop = r.top;
           fixed.style.top = Math.max(baseTop, 0) + "px";
         }
+        updateHeight();
       };
       sync(true);
       window.addEventListener("resize", () => sync(true));
       window.addEventListener("scroll", () => sync(false), { passive: true });
+      window.addEventListener("resize", updateHeight);
 
       const showBtn = document.getElementById("showSearchBtn");
       if (showBtn) {
