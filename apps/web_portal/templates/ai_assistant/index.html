@@ -82,12 +82,15 @@
         });
       }
 
-      function addMessage(role, text) {
+      function addMessage(role, text, save = true) {
         const wrapper = document.createElement('div');
         wrapper.className = `ai-message ai-${role}`;
         wrapper.innerHTML = `<div class=\"ai-bubble\">${escapeHtml(text)}</div>`;
         messagesEl.appendChild(wrapper);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+        if (save) {
+          saveHistory(role, text);
+        }
       }
 
       function addStatus(text) {
@@ -105,6 +108,28 @@
         }[c]));
       }
 
+      function loadHistory() {
+        try {
+          const raw = sessionStorage.getItem('ai_history');
+          const data = raw ? JSON.parse(raw) : [];
+          return Array.isArray(data) ? data : [];
+        } catch (err) {
+          return [];
+        }
+      }
+
+      function saveHistory(role, content) {
+        const history = loadHistory();
+        history.push({ role, content });
+        // keep last 12 messages
+        while (history.length > 12) history.shift();
+        sessionStorage.setItem('ai_history', JSON.stringify(history));
+      }
+
+      function clearHistory() {
+        sessionStorage.removeItem('ai_history');
+      }
+
       async function sendMessage() {
         const text = (inputEl.value || '').trim();
         if (!text) return;
@@ -115,10 +140,11 @@
         inputEl.disabled = true;
 
         try {
+          const history = loadHistory();
           const resp = await fetch('/assistant/api/message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: text, mode })
+            body: JSON.stringify({ message: text, mode, history })
           });
           const data = await resp.json();
           statusNode.remove();
@@ -144,6 +170,7 @@
 
       clearBtn.addEventListener('click', () => {
         messagesEl.innerHTML = '';
+        clearHistory();
       });
 
       modeButtons.forEach(btn => {
@@ -157,7 +184,14 @@
         });
       });
 
-      addMessage('assistant', 'Hi! Ask me for airport codes, travel info, or how to use the platform.');
+      const history = loadHistory();
+      if (history.length) {
+        history.forEach((msg) => {
+          addMessage(msg.role, msg.content, false);
+        });
+      } else {
+        addMessage('assistant', 'Hi! Ask me for airport codes, travel info, or how to use the platform.');
+      }
     })();
   </script>
 {% endif %}
