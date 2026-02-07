@@ -52,6 +52,23 @@
   </div>
 </div>
 
+<div class="modal fade report-order-modal" id="esimOrderModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="report-modal-title">Order Details</div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="esimOrderDetails"></div>
+      </div>
+      <div class="modal-footer report-modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <style>
   .esim-report{
     background: radial-gradient(circle at top, #f7f2e8 0%, #f4f2ec 45%, #f1f3f4 100%);
@@ -128,6 +145,13 @@
     border-bottom: 1px solid rgba(32,33,36,.08);
     align-items: center;
   }
+  .report-row[data-order-key]{
+    cursor: pointer;
+    transition: background .2s ease, box-shadow .2s ease;
+  }
+  .report-row[data-order-key]:hover{
+    background: #f8fafc;
+  }
   .report-row.header{
     background: #f7f8f9;
     text-transform: uppercase;
@@ -182,6 +206,90 @@
     .report-row > div:nth-child(3),
     .report-row > div:nth-child(4){ display:none; }
   }
+
+  .report-order-modal .modal-dialog{
+    max-width: 1000px;
+    margin-top: 3.5rem;
+  }
+  .report-order-modal .modal-content{
+    border-radius: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 28px 70px rgba(15, 23, 42, 0.18);
+  }
+  .report-order-modal .modal-header{
+    border-bottom: 1px solid #e5e7eb;
+    padding: 1.25rem 1.75rem;
+  }
+  .report-modal-title{
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+  .report-order-modal .modal-body{
+    padding: 1.5rem 1.75rem 2rem;
+  }
+  .report-order-modal .modal-footer{
+    border-top: 1px solid #e5e7eb;
+    padding: 1rem 1.75rem;
+  }
+  .order-detail-header{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  .order-detail-title{
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .order-detail-price{
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+  .order-detail-card{
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 1rem 1.1rem;
+    background: #fbfbfb;
+  }
+  .order-detail-card .label{
+    font-size: .75rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #6b7280;
+    font-weight: 700;
+    margin-bottom: .35rem;
+  }
+  .order-detail-card .value{
+    font-weight: 600;
+  }
+  .order-detail-grid{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .order-actions{
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 1.5rem;
+  }
+  .order-actions .btn{
+    border-radius: 999px;
+    padding: .55rem 1.4rem;
+  }
+  .order-actions .btn-success{
+    background: #25d366;
+    border-color: #25d366;
+  }
+  @media (max-width: 768px){
+    .order-detail-grid{
+      grid-template-columns: 1fr;
+    }
+  }
 </style>
 {% endblock %}
 
@@ -197,9 +305,13 @@
     const clearBtn = document.getElementById("esimReportClear");
     const exportBtn = document.getElementById("esimExportBtn");
     const tabBtns = document.querySelectorAll(".report-tab");
+    const orderModalEl = document.getElementById("esimOrderModal");
+    const orderDetailsEl = document.getElementById("esimOrderDetails");
+    const orderModal = orderModalEl && window.bootstrap ? window.bootstrap.Modal.getOrCreateInstance(orderModalEl) : null;
 
     let orders = [];
     let statusFilter = "all";
+    let orderLookup = new Map();
 
     const fmtDate = (iso) => {
       try {
@@ -242,6 +354,36 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+
+    const getReference = (o) => o.order_reference || o.reference || o.id || "";
+    const getCustomerPhone = (o) => o.customer_phone || o.phone || "";
+    const getActivationCodes = (o) => {
+      const out = [];
+      if (o.activation_code) out.push(o.activation_code);
+      if (o.lpa) out.push(o.lpa);
+      if (Array.isArray(o.activation_codes)) out.push(...o.activation_codes);
+      if (typeof o.activation_codes === "string") out.push(o.activation_codes);
+      return out.filter(Boolean);
+    };
+    const getIccids = (o) => {
+      const out = [];
+      if (o.iccid) out.push(o.iccid);
+      if (Array.isArray(o.iccids)) out.push(...o.iccids);
+      if (typeof o.iccids === "string") out.push(o.iccids);
+      return out.filter(Boolean);
+    };
+    const copyText = async (text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const input = document.createElement("input");
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        input.remove();
+      }
+    };
 
     const applyFilters = () => {
       const q = (searchEl?.value || "").toLowerCase().trim();
@@ -286,11 +428,14 @@
           <div>Status</div>
         </div>
       `;
-      list.forEach((o) => {
+      orderLookup = new Map();
+      list.forEach((o, idx) => {
         const status = String(o.status || "processing").toLowerCase();
         const itemName = o.bundle_description || o.bundle_name || "eSIM";
+        const key = getReference(o) || `row_${idx}`;
+        orderLookup.set(key, o);
         html += `
-          <div class="report-row">
+          <div class="report-row" data-order-key="${escapeHtml(key)}">
             <div>${escapeHtml(fmtDate(o.created_at))}</div>
             <div>${escapeHtml(o.customer_name || "—")}</div>
             <div>${escapeHtml(o.company_name || "—")}</div>
@@ -309,6 +454,84 @@
       });
       rowsEl.innerHTML = html;
       if (footerEl) footerEl.textContent = `Showing ${list.length} of ${orders.length}`;
+    };
+
+    const renderOrderDetails = (o) => {
+      if (!orderDetailsEl) return;
+      if (!o) {
+        orderDetailsEl.innerHTML = '<div class="text-muted">Order not found.</div>';
+        return;
+      }
+      const itemName = o.bundle_description || o.bundle_name || "eSIM";
+      const ref = getReference(o);
+      const customer = o.customer_name || "—";
+      const phone = getCustomerPhone(o);
+      const servedBy = o.agent_email || o.agent_name || "";
+      const actCodes = getActivationCodes(o);
+      const iccids = getIccids(o);
+      const qrText = o.qr_code || o.qr || "";
+      const qrSource = actCodes.length ? actCodes[0] : (qrText || "");
+      const qrUrl = qrSource ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrSource)}` : "";
+      const qrStatus = qrSource ? "" : "QR asset pending supplier confirmation.";
+      const whatsappMsg = [
+        `Order: ${itemName}`,
+        ref ? `Reference: ${ref}` : "",
+        customer ? `Customer: ${customer}` : "",
+        phone ? `Phone: ${phone}` : "",
+        o.country_name ? `Country: ${o.country_name}` : "",
+        `Total: ${fmtMoney(o.total_iqd)}`,
+        actCodes.length ? `Activation: ${actCodes[0]}` : "",
+        iccids.length ? `ICCID: ${iccids[0]}` : "",
+        qrUrl ? `QR: ${qrUrl}` : "",
+      ].filter(Boolean).join("\n");
+      orderDetailsEl.innerHTML = `
+        <div class="order-detail-header mb-3">
+          <div class="order-detail-title">
+            <span class="report-flag">${escapeHtml(toFlag(o.country_iso))}</span>
+            <span>${escapeHtml(itemName)}</span>
+          </div>
+          <div class="order-detail-price">${escapeHtml(fmtMoney(o.total_iqd))}</div>
+        </div>
+
+        <div class="order-detail-card mb-3">
+          <div class="label">Reference</div>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="value">${escapeHtml(ref || "—")}</div>
+            ${ref ? `<button class="btn btn-outline-secondary btn-sm" data-copy="${escapeHtml(ref)}">Copy</button>` : ""}
+          </div>
+        </div>
+
+        <div class="order-detail-card mb-3">
+          <div class="label">Customer</div>
+          <div class="value">${escapeHtml(customer)} ${phone ? `<span class="text-muted ms-2">${escapeHtml(phone)}</span>` : ""}</div>
+          ${servedBy ? `<div class="text-muted mt-1">Served by: ${escapeHtml(servedBy)}</div>` : ""}
+        </div>
+
+        <div class="order-detail-card mb-3 text-center">
+          <div class="label">QR Code</div>
+          ${qrUrl ? `<img src="${qrUrl}" alt="QR Code" style="max-width:220px; width:100%; height:auto; margin: .75rem auto; display:block;"/>` : ""}
+          ${qrStatus ? `<div class="text-muted">${qrStatus}</div>` : ""}
+          ${qrSource ? `<div class="text-muted small">Generated from activation code</div>` : ""}
+        </div>
+
+        <div class="order-detail-grid">
+          <div class="order-detail-card">
+            <div class="label">Activation Codes</div>
+            <div class="value">${actCodes.length ? actCodes.map(c => `<div>${escapeHtml(c)}</div>`).join("") : "—"}</div>
+          </div>
+          <div class="order-detail-card">
+            <div class="label">ICCID List</div>
+            <div class="value">${iccids.length ? iccids.map(c => `<div>${escapeHtml(c)}</div>`).join("") : "—"}</div>
+          </div>
+        </div>
+
+        <div class="order-actions">
+          <button class="btn btn-outline-secondary" type="button">Refresh</button>
+          <button class="btn btn-outline-secondary" type="button">Share</button>
+          <button class="btn btn-success" type="button" data-whatsapp="${escapeHtml(whatsappMsg)}">Send via WhatsApp</button>
+          <button class="btn btn-outline-secondary" type="button" data-print>Print</button>
+        </div>
+      `;
     };
 
     const refreshFilters = () => {
@@ -372,6 +595,34 @@
       renderRows();
     });
     exportBtn?.addEventListener("click", exportCsv);
+
+    rowsEl?.addEventListener("click", (e) => {
+      const row = e.target.closest(".report-row[data-order-key]");
+      if (!row || row.classList.contains("header")) return;
+      const key = row.getAttribute("data-order-key") || "";
+      const order = orderLookup.get(key);
+      renderOrderDetails(order);
+      if (orderModal) orderModal.show();
+    });
+
+    orderDetailsEl?.addEventListener("click", (e) => {
+      const copyBtn = e.target.closest("[data-copy]");
+      if (copyBtn) {
+        copyText(copyBtn.getAttribute("data-copy") || "");
+        return;
+      }
+      const printBtn = e.target.closest("[data-print]");
+      if (printBtn) {
+        window.print();
+        return;
+      }
+      const waBtn = e.target.closest("[data-whatsapp]");
+      if (waBtn) {
+        const msg = waBtn.getAttribute("data-whatsapp") || "";
+        const url = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+        window.open(url, "_blank", "noopener");
+      }
+    });
 
     fetch("/reports/esim/api/list")
       .then(r => r.json())

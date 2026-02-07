@@ -82,6 +82,16 @@
         </a>
       {% endif %}
 
+      {% if has_ai_assistant %}
+        <a
+          href="{{ request.url_for('ai_assistant') }}"
+          class="list-group-item list-group-item-action {% if request.url.path == '/assistant' %}active{% endif %}"
+          {% if request.url.path == '/assistant' %}aria-current="page"{% endif %}
+        >
+          AI Assistant
+        </a>
+      {% endif %}
+
       <a
         href="{{ request.url_for('transactions') }}"
         id="userNavTransactions"

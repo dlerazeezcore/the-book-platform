@@ -33,6 +33,13 @@ ADDONS_DEFAULT = {
         "yearly_price": 150000,
         "currency": "IQD",
     },
+    "ai_assistant": {
+        "name": "AI Assistant",
+        "description": "Travel info + operations assistant for staff (airport codes, workflows, FAQs).",
+        "monthly_price": 25000,
+        "yearly_price": 250000,
+        "currency": "IQD",
+    },
 }
 
 

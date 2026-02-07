@@ -42,7 +42,7 @@
 </div>
 
 <!-- Modal: New Profile -->
-<div class="modal fade" id="modalProfile" tabindex="-1" aria-hidden="true">
+<div class="modal fade passenger-db-modal pdb-profile-modal" id="modalProfile" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -78,7 +78,7 @@
 </div>
 
 <!-- Modal: Member -->
-<div class="modal fade" id="modalMember" tabindex="-1" aria-hidden="true">
+<div class="modal fade passenger-db-modal pdb-member-modal" id="modalMember" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
       <div class="modal-header">
@@ -234,7 +234,7 @@
             <div class="text-muted small">${esc(ev.created_at || "")}</div>
             ${k === "flight" ? `<div class="text-muted small">${esc(d.from || "")} → ${esc(d.to || "")} ${esc(d.airline || "")}</div>` : ""}
             ${k === "hotel" ? `<div class="text-muted small">${esc(d.hotel_name || d.hotel || "")} ${esc(d.city || "")}</div>` : ""}
-            ${k === "visa" ? `<div class="text-muted small">Country: ${esc(d.country || d.destination_country || "")} • Status: ${esc(d.status || d.visa_status || "")}</div>` : ""}
+            ${k === "visa" ? `<div class="text-muted small">Country: ${esc(d.country || d.destination_country || "")} • Status: ${esc(d.status || d.visa_status || "")}${d.visa_type ? " • Type: " + esc(d.visa_type) : ""}${(d.amount || d.amount === 0) ? " • Amount: " + esc(d.amount) + " " + esc(d.amount_currency || "IQD") : ""}</div>` : ""}
             ${k === "esim" ? `<div class="text-muted small">Plan: ${esc(d.bundle_description || d.bundle_name || "")} • Country: ${esc(d.country_name || d.country_iso || "")}</div>
             <div class="text-muted small">Order: ${esc(d.order_reference || "")} • Status: ${esc(d.status || "")}</div>` : ""}
           </div>

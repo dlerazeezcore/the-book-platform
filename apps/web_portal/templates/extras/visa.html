@@ -37,21 +37,105 @@
       <div class="tab-content mt-3">
         <div class="tab-pane fade show active" id="paneCreate" role="tabpanel">
           <div class="row g-3">
-            <div class="col-12 col-lg-7">
+            <div class="col-12">
               <div class="fw-semibold mb-2">Direct submission</div>
-              <form id="visaCreateForm" class="row g-2">
-                <div class="col-12 col-md-6">
-                  <label class="form-label small text-muted mb-1">Passport number *</label>
-                  <input class="form-control" name="passport" required/>
-                </div>
-                <div class="col-12 col-md-6">
-                  <label class="form-label small text-muted mb-1">Destination country *</label>
-                  <input class="form-control" name="country" required/>
-                </div>
+              <form id="visaCreateForm" class="row g-3">
                 <div class="col-12">
-                  <label class="form-label small text-muted mb-1">Notes</label>
-                  <textarea class="form-control" name="notes" rows="2"></textarea>
+                  <div class="row g-2">
+                    <div class="col-12 col-md-6">
+                      <label class="form-label small text-muted mb-1">Destination country *</label>
+                      <input class="form-control" name="country" id="visaCountry" required/>
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="form-label small text-muted mb-1">Visa type</label>
+                      <select class="form-select" name="visa_type" id="visaType">
+                        <option value="">Select…</option>
+                        <option value="tourist">Tourist</option>
+                        <option value="business">Business</option>
+                      </select>
+                    </div>
+                    <div class="col-12 col-md-3">
+                      <label class="form-label small text-muted mb-1">Submission date</label>
+                      <input class="form-control" type="date" name="submission_date" id="visaSubmissionDate"/>
+                    </div>
+                  </div>
                 </div>
+
+                <div class="col-12">
+                  <div id="visaApplicants" class="d-flex flex-column gap-3">
+                    <div class="card visa-person-card" data-index="0">
+                      <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap visa-person-header">
+                          <div class="fw-semibold">Applicant 1</div>
+                          <div class="d-flex align-items-center gap-2">
+                            <button class="btn btn-outline-primary btn-sm" type="button" data-action="db">Use Passenger DB</button>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" data-action="clear">Clear</button>
+                            <button class="btn btn-outline-danger btn-sm d-none" type="button" data-action="remove">Remove</button>
+                          </div>
+                        </div>
+                        <div class="row g-2 mt-2">
+                          <div class="col-12 col-md-2">
+                            <label class="form-label small text-muted mb-1">Title</label>
+                            <select class="form-select" data-field="title" name="title">
+                              <option value="">Choose</option>
+                              <option value="mr">Mr</option>
+                              <option value="mrs">Mrs</option>
+                              <option value="ms">Ms</option>
+                              <option value="mstr">Mstr</option>
+                            </select>
+                          </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label small text-muted mb-1">Name</label>
+                            <input class="form-control" data-field="first_name" name="first_name"/>
+                          </div>
+                          <div class="col-12 col-md-4">
+                            <label class="form-label small text-muted mb-1">Last name</label>
+                            <input class="form-control" data-field="last_name" name="last_name"/>
+                          </div>
+                          <div class="col-12 col-md-2">
+                            <label class="form-label small text-muted mb-1">DOB</label>
+                            <input class="form-control" type="date" data-field="dob" name="dob"/>
+                          </div>
+                          <div class="col-12 col-md-6">
+                            <label class="form-label small text-muted mb-1">Passport number</label>
+                            <input class="form-control" data-field="passport" name="passport"/>
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label small text-muted mb-1">Passport expiry</label>
+                            <input class="form-control" type="date" data-field="passport_expiry" name="passport_expiry"/>
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label small text-muted mb-1">Status</label>
+                            <select class="form-select" data-field="status" name="status">
+                              <option value="pending">Pending</option>
+                              <option value="submitted">Submitted</option>
+                              <option value="approved">Approved</option>
+                              <option value="rejected">Rejected</option>
+                            </select>
+                          </div>
+                          <div class="col-12 col-md-3">
+                            <label class="form-label small text-muted mb-1">Amount (IQD)</label>
+                            <input class="form-control" type="number" step="0.01" data-field="amount" name="amount" placeholder="0"/>
+                          </div>
+                          <input type="hidden" data-field="profile_id" name="profile_id">
+                          <input type="hidden" data-field="member_id" name="member_id">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="mt-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="visaAddPerson">Add applicant</button>
+                  </div>
+                </div>
+
+                <input type="hidden" name="applicants_json" id="visaApplicantsJson"/>
+                <input type="hidden" name="amount_currency" value="IQD"/>
+
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Notes (shared)</label>
+                  <textarea class="form-control" name="notes" id="visaNotes" rows="3" style="min-height: 120px;"></textarea>
+                </div>
+
                 <div class="col-12 col-md-6">
                   <label class="form-label small text-muted mb-1">Passport scans</label>
                   <input class="form-control" type="file" name="passport_scan" multiple/>
@@ -62,13 +146,11 @@
                 </div>
                 <div class="col-12 d-flex align-items-center gap-2">
                   <button class="btn btn-primary" type="submit">Submit application</button>
-                  <span class="text-muted small">Status starts as pending.</span>
+                </div>
+                <div class="col-12">
+                  <div id="visaCreateInlineStatus" class="small text-muted"></div>
                 </div>
               </form>
-            </div>
-            <div class="col-12 col-lg-5">
-              <div class="fw-semibold mb-2">Status</div>
-              <div id="visaCreateStatus" class="alert alert-light border mb-0">Ready.</div>
             </div>
           </div>
         </div>
@@ -87,12 +169,37 @@
                 <input type="hidden" name="price" id="vendorPrice"/>
                 <input type="hidden" name="currency" id="vendorCurrency"/>
                 <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Passenger name</label>
+                  <input class="form-control" name="passenger_name" id="vendorPassengerName"/>
+                </div>
+                <div class="col-12">
                   <label class="form-label small text-muted mb-1">Passport number *</label>
                   <input class="form-control" name="passport" id="vendorPassport" required/>
                 </div>
                 <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Passport expiry</label>
+                  <input class="form-control" type="date" name="passport_expiry"/>
+                </div>
+                <div class="col-12">
                   <label class="form-label small text-muted mb-1">Destination country *</label>
                   <input class="form-control" name="country" id="vendorCountry" required/>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Visa type</label>
+                  <select class="form-select" name="visa_type">
+                    <option value="">Select…</option>
+                    <option value="tourist">Tourist</option>
+                    <option value="business">Business</option>
+                  </select>
+                </div>
+                <div class="col-12">
+                  <label class="form-label small text-muted mb-1">Visa status</label>
+                  <select class="form-select" name="status">
+                    <option value="submitted" selected>Submitted</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
                 </div>
                 <div class="col-12">
                   <label class="form-label small text-muted mb-1">Notes</label>
@@ -118,6 +225,41 @@
 
         <div class="tab-pane fade" id="paneApplications" role="tabpanel">
           <div class="fw-semibold mb-2">Applications & status</div>
+          <div class="row g-2 mb-2 align-items-end">
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted mb-1">From date</label>
+              <input class="form-control form-control-sm" type="date" id="visaFilterFrom">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted mb-1">To date</label>
+              <input class="form-control form-control-sm" type="date" id="visaFilterTo">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted mb-1">Country</label>
+              <input class="form-control form-control-sm" type="text" id="visaFilterCountry" placeholder="Country">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label small text-muted mb-1">Status</label>
+              <select class="form-select form-select-sm" id="visaFilterStatus">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="submitted">Submitted</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="row g-2 mb-2 align-items-end">
+            <div class="col-12 col-lg-6">
+              <label class="form-label small text-muted mb-1">Profile (filter by applicant)</label>
+              <div class="input-group input-group-sm">
+                <input class="form-control" id="visaFilterProfileLabel" placeholder="Choose profile" readonly>
+                <button class="btn btn-outline-primary" type="button" id="visaFilterProfilePick">Use Passenger DB</button>
+                <button class="btn btn-outline-secondary" type="button" id="visaFilterProfileClear">Clear</button>
+              </div>
+              <input type="hidden" id="visaFilterProfileId">
+            </div>
+          </div>
           <div id="visaList" class="text-muted">Loading…</div>
         </div>
 
@@ -164,19 +306,71 @@
     </div>
   </div>
 </div>
+
+<div class="modal fade passenger-db-modal" id="passengerDbModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Passenger Database</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="passenger-db-subtitle">Search by passport, name, last name, phone, or profile label.</div>
+        <div class="input-group input-group-lg mb-2 passenger-db-search">
+          <span class="input-group-text">Search</span>
+          <input class="form-control" id="passengerDbSearch" placeholder="Passport / Name / Phone / Profile"/>
+        </div>
+        <div class="d-flex justify-content-end mb-3">
+          <button class="btn btn-link btn-sm px-0" type="button" id="passengerDbLoadAll">Load all</button>
+        </div>
+        <div class="passenger-db-hint">Select a passenger (and passport if multiple).</div>
+        <div id="passengerDbResults" class="passenger-db-results">
+          <div class="text-muted">Type to search…</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
   window.addEventListener("DOMContentLoaded", () => {
-    const STATUS = ["pending", "approved", "rejected"];
+    const STATUS = ["pending", "submitted", "approved", "rejected"];
     const isVendor = {{ "true" if (current_user and has_visa_vendor) else "false" }};
 
     const visaSearch = document.getElementById("visaSearch");
     const visaList = document.getElementById("visaList");
     const createForm = document.getElementById("visaCreateForm");
     const createStatus = document.getElementById("visaCreateStatus");
+    const passengerNameInput = null;
+    const passportInput = null;
+    const passportExpiryInput = null;
+    const passengerMatch = null;
+    const visaApplicants = document.getElementById("visaApplicants");
+    const visaApplicantsJson = document.getElementById("visaApplicantsJson");
+    const addPersonBtn = document.getElementById("visaAddPerson");
+    const passengerDbBtn = document.getElementById("visaPassengerDbBtn");
+    const passengerDbModalEl = document.getElementById("passengerDbModal");
+    const passengerDbSearch = document.getElementById("passengerDbSearch");
+    const passengerDbResults = document.getElementById("passengerDbResults");
+    const passengerDbLoadAll = document.getElementById("passengerDbLoadAll");
+    const passengerDbModal = (passengerDbModalEl && window.bootstrap && window.bootstrap.Modal)
+      ? window.bootstrap.Modal.getOrCreateInstance(passengerDbModalEl)
+      : null;
+
+    const filterFrom = document.getElementById("visaFilterFrom");
+    const filterTo = document.getElementById("visaFilterTo");
+    const filterCountry = document.getElementById("visaFilterCountry");
+    const filterStatus = document.getElementById("visaFilterStatus");
+    const filterProfileLabel = document.getElementById("visaFilterProfileLabel");
+    const filterProfileId = document.getElementById("visaFilterProfileId");
+    const filterProfilePick = document.getElementById("visaFilterProfilePick");
+    const filterProfileClear = document.getElementById("visaFilterProfileClear");
 
     const vendorOffers = document.getElementById("vendorOffers");
     const vendorSelection = document.getElementById("vendorSelection");
@@ -213,6 +407,108 @@
       el.textContent = msg;
     };
 
+    const memberPrimaryPassport = (member) => {
+      if (!member) return "";
+      if (member.primary_passport_number) return String(member.primary_passport_number || "");
+      const docs = Array.isArray(member.passports) ? member.passports : [];
+      return docs.length ? String(docs[0].number || "") : "";
+    };
+
+    const memberPassportExpiry = (member, passportNumber) => {
+      const docs = Array.isArray(member.passports) ? member.passports : [];
+      const target = String(passportNumber || "").trim().toLowerCase();
+      for (const d of docs) {
+        if (String(d.number || "").trim().toLowerCase() === target) {
+          return String(d.expiry_date || "");
+        }
+      }
+      return docs.length ? String(docs[0].expiry_date || "") : "";
+    };
+
+    const renderPassengerResults = (profiles) => {
+      if (!passengerDbResults) return;
+      if (!Array.isArray(profiles) || !profiles.length) {
+        passengerDbResults.innerHTML = '<div class="text-muted">No passengers found.</div>';
+        return;
+      }
+      let html = "";
+      const showProfileBtn = window.__visaProfileFilterMode === true;
+      for (const p of profiles) {
+        const members = Array.isArray(p.members) ? p.members : [];
+        const label = p.label || "Profile";
+        const phone = p.phone || "";
+        const profileId = p.id || p.profile_id || "";
+        if (!members.length) continue;
+        html += `
+          <div class="passenger-profile-card mb-3">
+            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+              <div>
+                <div class="fw-semibold">${esc(label)}</div>
+                ${phone ? `<div class="text-muted small">Phone: ${esc(phone)}</div>` : ""}
+              </div>
+              ${showProfileBtn ? `<button type="button" class="btn btn-outline-primary btn-sm" data-profile-select="1" data-profile-id="${esc(profileId)}" data-profile-label="${esc(label)}">Use profile</button>` : ""}
+            </div>
+        `;
+        for (const m of members) {
+          const name = `${m.first_name || ""} ${m.last_name || ""}`.trim();
+          const docs = Array.isArray(m.passports) ? m.passports : [];
+          let passport = "";
+          let expiry = "";
+          let options = "";
+          docs.forEach((d, idx) => {
+            const num = String(d.number || "").trim();
+            if (!num) return;
+            const exp = String(d.expiry_date || "").trim();
+            if (!passport) {
+              passport = num;
+              expiry = exp;
+            }
+            const labelTxt = exp ? `${num} (exp ${exp})` : num;
+            options += `<option value="${esc(num)}||${esc(exp)}" ${idx === 0 ? "selected" : ""}>${esc(labelTxt)}</option>`;
+          });
+          if (!options) {
+            const primary = String(m.primary_passport_number || "").trim();
+            if (primary) {
+              passport = primary;
+              options = `<option value="${esc(primary)}||">${esc(primary)}</option>`;
+            } else {
+              options = `<option value="">No passport</option>`;
+            }
+          }
+          const profileLabel = p.label || "Profile";
+          const memberId = m.id || m.member_id || "";
+          const dataAttrs = `
+            data-passenger-select="1"
+            data-passenger-first="${esc(m.first_name || "")}"
+            data-passenger-last="${esc(m.last_name || "")}"
+            data-passenger-title="${esc(m.title || "")}"
+            data-passenger-dob="${esc(m.dob || "")}"
+            data-passenger-passport="${esc(passport)}"
+            data-passenger-expiry="${esc(expiry)}"
+            data-profile-id="${esc(profileId)}"
+            data-profile-label="${esc(profileLabel)}"
+            data-member-id="${esc(memberId)}"
+          `;
+          html += `
+            <div class="passenger-member" ${dataAttrs}>
+              <div>
+                <div class="fw-semibold">${esc(name || "Unnamed passenger")}</div>
+                <div class="text-muted small">DOB: ${esc(m.dob || "—")} · Type: ${esc(m.age_category || "unknown")}</div>
+              </div>
+              <div class="passenger-member-actions">
+                <select class="form-select form-select-sm" data-passport-select>
+                  ${options}
+                </select>
+                <button class="btn btn-primary btn-sm" type="button" ${dataAttrs}>Select</button>
+              </div>
+            </div>
+          `;
+        }
+        html += `</div>`;
+      }
+      passengerDbResults.innerHTML = html || '<div class="text-muted">No passengers found.</div>';
+    };
+
     const renderAttachments = (atts=[]) => {
       if (!Array.isArray(atts) || !atts.length) return "";
       let html = '<div class="mt-2 small">Attachments: ';
@@ -228,7 +524,9 @@
 
     const statusBadge = (s) => {
       const v = String(s || "pending").toLowerCase();
-      const cls = v === "approved" ? "success" : (v === "rejected" ? "danger" : "warning");
+      const cls = v === "approved"
+        ? "success"
+        : (v === "rejected" ? "danger" : (v === "submitted" ? "info" : "warning"));
       return `<span class="badge text-bg-${cls}">${esc(v)}</span>`;
     };
 
@@ -239,12 +537,36 @@
         ? `<div class="text-muted small">Vendor: ${esc(v.vendor_name || v.vendor_id || "")} • ${fmtMoney(v.vendor_price || 0)} ${esc(v.vendor_currency || "IQD")}</div>`
         : `<div class="text-muted small">Channel: Direct</div>`;
       const passengerLine = v.passenger_name ? `Passenger: ${esc(v.passenger_name)}` : "Passenger: —";
-      const createdLine = v.created_at ? `Created: ${esc(fmtDate(v.created_at))}` : "";
+      const typeLine = v.visa_type ? `Type: ${esc(v.visa_type)}` : "";
+      const expiryLine = v.passport_expiry ? `Passport expiry: ${esc(v.passport_expiry)}` : "";
+      const amountLine = (v.amount || v.amount === 0)
+        ? `Amount: ${fmtMoney(v.amount)} ${esc(v.amount_currency || "IQD")}`
+        : "";
+      const createdLine = v.submission_date
+        ? `Submitted: ${esc(v.submission_date)}`
+        : (v.created_at ? `Created: ${esc(fmtDate(v.created_at))}` : "");
+      const appId = String(v.application_id || "");
+      const appLine = appId ? `Application: ${esc(appId)}` : "";
 
       let opts = "";
       for (const s of STATUS) {
         opts += `<option value="${s}" ${s === status ? "selected" : ""}>${s}</option>`;
       }
+
+      const visaType = String(v.visa_type || "");
+      const typeOpts = `
+        <option value="" ${visaType === "" ? "selected" : ""}>Select…</option>
+        <option value="tourist" ${visaType === "tourist" ? "selected" : ""}>Tourist</option>
+        <option value="business" ${visaType === "business" ? "selected" : ""}>Business</option>
+      `;
+      const titleVal = String(v.title || "");
+      const titleOpts = `
+        <option value="" ${titleVal === "" ? "selected" : ""}>Choose</option>
+        <option value="mr" ${titleVal === "mr" ? "selected" : ""}>Mr</option>
+        <option value="mrs" ${titleVal === "mrs" ? "selected" : ""}>Mrs</option>
+        <option value="ms" ${titleVal === "ms" ? "selected" : ""}>Ms</option>
+        <option value="mstr" ${titleVal === "mstr" ? "selected" : ""}>Mstr</option>
+      `;
 
       return `
         <div class="list-group-item">
@@ -253,7 +575,11 @@
               <div class="fw-semibold">${esc(v.passport_number || "")} • ${esc(v.destination_country || "")}</div>
               <div class="text-muted small">${passengerLine}</div>
               ${vendorLine}
+              ${typeLine ? `<div class="text-muted small">${typeLine}</div>` : ""}
+              ${expiryLine ? `<div class="text-muted small">${expiryLine}</div>` : ""}
+              ${amountLine ? `<div class="text-muted small">${amountLine}</div>` : ""}
               ${createdLine ? `<div class="text-muted small">${createdLine}</div>` : ""}
+              ${appLine ? `<div class="text-muted small">${appLine}</div>` : ""}
               ${renderAttachments(v.attachments || [])}
             </div>
             <div class="d-flex flex-column align-items-end gap-2">
@@ -264,8 +590,103 @@
                 </select>
                 <button class="btn btn-outline-primary" data-status-update="${esc(v.id)}">Update</button>
               </div>
+              <button class="btn btn-sm btn-outline-secondary" data-visa-edit="${esc(v.id)}">Edit</button>
+              ${appId ? `<button class="btn btn-sm btn-outline-secondary" data-app-edit="${esc(appId)}">Edit application</button>` : ""}
             </div>
           </div>
+          <div class="visa-edit mt-3 d-none" data-visa-edit-panel="${esc(v.id)}">
+            <div class="card border-0 visa-edit-card">
+              <div class="card-body p-3">
+                <div class="row g-2">
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Title</label>
+                    <select class="form-select form-select-sm" data-edit-field="title">${titleOpts}</select>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">First name</label>
+                    <input class="form-control form-control-sm" data-edit-field="first_name" value="${esc(v.first_name || (String(v.passenger_name || '').split(' ')[0] || ''))}"/>
+                  </div>
+                  <div class="col-12 col-md-5">
+                    <label class="form-label small text-muted mb-1">Last name</label>
+                    <input class="form-control form-control-sm" data-edit-field="last_name" value="${esc(v.last_name || (String(v.passenger_name || '').split(' ').slice(1).join(' ') || ''))}"/>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">DOB</label>
+                    <input class="form-control form-control-sm" type="date" data-edit-field="dob" value="${esc(v.dob || "")}"/>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Passport number</label>
+                    <input class="form-control form-control-sm" data-edit-field="passport_number" value="${esc(v.passport_number || "")}"/>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Passport expiry</label>
+                    <input class="form-control form-control-sm" type="date" data-edit-field="passport_expiry" value="${esc(v.passport_expiry || "")}"/>
+                  </div>
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Destination country</label>
+                    <input class="form-control form-control-sm" data-edit-field="destination_country" value="${esc(v.destination_country || "")}"/>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Visa type</label>
+                    <select class="form-select form-select-sm" data-edit-field="visa_type">${typeOpts}</select>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Status</label>
+                    <select class="form-select form-select-sm" data-edit-field="status">${opts}</select>
+                  </div>
+                  <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted mb-1">Amount</label>
+                    <input class="form-control form-control-sm" type="number" step="0.01" data-edit-field="amount" value="${esc(v.amount ?? "")}"/>
+                  </div>
+                  <div class="col-12 col-md-2">
+                    <label class="form-label small text-muted mb-1">Currency</label>
+                    <input class="form-control form-control-sm" data-edit-field="amount_currency" value="${esc(v.amount_currency || "IQD")}"/>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Submission date</label>
+                    <input class="form-control form-control-sm" type="date" data-edit-field="submission_date" value="${esc(v.submission_date || "")}"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Notes</label>
+                    <textarea class="form-control form-control-sm" rows="2" data-edit-field="notes">${esc(v.notes || "")}</textarea>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <button class="btn btn-sm btn-primary" type="button" data-visa-save="${esc(v.id)}">Save changes</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" data-visa-cancel="${esc(v.id)}">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          ${appId ? `
+          <div class="visa-edit mt-3 d-none" data-app-edit-panel="${esc(appId)}">
+            <div class="card border-0 visa-edit-card">
+              <div class="card-body p-3">
+                <div class="row g-2">
+                  <div class="col-12 col-md-4">
+                    <label class="form-label small text-muted mb-1">Destination country (shared)</label>
+                    <input class="form-control form-control-sm" data-app-field="destination_country" value="${esc(v.destination_country || "")}"/>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Visa type (shared)</label>
+                    <select class="form-select form-select-sm" data-app-field="visa_type">${typeOpts}</select>
+                  </div>
+                  <div class="col-12 col-md-3">
+                    <label class="form-label small text-muted mb-1">Submission date (shared)</label>
+                    <input class="form-control form-control-sm" type="date" data-app-field="submission_date" value="${esc(v.submission_date || "")}"/>
+                  </div>
+                  <div class="col-12">
+                    <label class="form-label small text-muted mb-1">Notes (shared)</label>
+                    <textarea class="form-control form-control-sm" rows="2" data-app-field="notes">${esc(v.notes || "")}</textarea>
+                  </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <button class="btn btn-sm btn-primary" type="button" data-app-save="${esc(appId)}">Save application</button>
+                  <button class="btn btn-sm btn-outline-secondary" type="button" data-app-cancel="${esc(appId)}">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>` : ""}
         </div>
       `;
     };
@@ -281,12 +702,46 @@
       html += "</div>";
       targetEl.innerHTML = html;
     };
+    window.renderVisaList = renderVisaList;
+    window.renderVisaItem = renderVisaItem;
+    window.renderSimpleVisaList = (items, targetEl, emptyLabel) => {
+      if (!targetEl) return;
+      if (!Array.isArray(items) || !items.length) {
+        targetEl.innerHTML = `<div class="text-muted">${esc(emptyLabel || "No applications yet.")}</div>`;
+        return;
+      }
+      let html = '<div class="list-group rounded-3 overflow-hidden">';
+      for (const v of items) {
+        const name = v.passenger_name || v.passport_number || "Visa";
+        const country = v.destination_country || "";
+        const status = v.status || "";
+        const submitted = v.submission_date ? `Submitted: ${v.submission_date}` : "";
+        const appLine = v.application_id ? `Application: ${v.application_id}` : "";
+        html += `
+          <div class="list-group-item">
+            <div class="fw-semibold">${esc(name)}</div>
+            <div class="text-muted small">Country: ${esc(country)} • Status: ${esc(status)}</div>
+            ${submitted ? `<div class="text-muted small">${esc(submitted)}</div>` : ""}
+            ${appLine ? `<div class="text-muted small">${esc(appLine)}</div>` : ""}
+          </div>
+        `;
+      }
+      html += "</div>";
+      targetEl.innerHTML = html;
+    };
 
     const loadApplications = async (q="") => {
       if (!visaList) return;
       visaList.textContent = "Loading…";
       try {
-        const r = await fetch("/visa/api/list?q=" + encodeURIComponent(q || ""));
+        const qs = new URLSearchParams();
+        if (q) qs.set("q", q);
+        if (filterCountry && filterCountry.value) qs.set("country", filterCountry.value);
+        if (filterStatus && filterStatus.value) qs.set("status", filterStatus.value);
+        if (filterFrom && filterFrom.value) qs.set("from_date", filterFrom.value);
+        if (filterTo && filterTo.value) qs.set("to_date", filterTo.value);
+        if (filterProfileId && filterProfileId.value) qs.set("profile_id", filterProfileId.value);
+        const r = await fetch("/visa/api/list?" + qs.toString());
         const data = await r.json();
         if (data.status !== "ok") {
           visaList.textContent = data.error || "Failed to load.";
@@ -296,6 +751,16 @@
       } catch (e) {
         visaList.textContent = String(e || "Failed to load.");
       }
+    };
+    window.loadVisaApplications = loadApplications;
+
+    const resetVisaFilters = () => {
+      if (filterCountry) filterCountry.value = "";
+      if (filterStatus) filterStatus.value = "";
+      if (filterFrom) filterFrom.value = "";
+      if (filterTo) filterTo.value = "";
+      if (filterProfileId) filterProfileId.value = "";
+      if (filterProfileLabel) filterProfileLabel.value = "";
     };
 
     const updateStatus = async (visaId, status) => {
@@ -332,10 +797,60 @@
         form.reset();
         setStatus(statusEl, "Application submitted.", "success");
         await loadApplications(visaSearch ? visaSearch.value : "");
+        const tabBtn = document.getElementById("tabApplications");
+        if (tabBtn && window.bootstrap && window.bootstrap.Tab) {
+          window.bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+        }
         return true;
       } catch (e) {
         setStatus(statusEl, String(e || "Failed to submit."), "danger");
         return false;
+      }
+    };
+
+    const lookupPassengerByPassport = async (passport, targetInput, matchEl) => {
+      const p = String(passport || "").trim();
+      if (!p) {
+        if (matchEl) matchEl.textContent = "";
+        return;
+      }
+      if (matchEl) matchEl.textContent = "Searching passenger database…";
+      try {
+        const r = await fetch("/passenger-database/api/search?q=" + encodeURIComponent(p));
+        const data = await r.json();
+        if (data.status !== "ok") {
+          if (matchEl) matchEl.textContent = data.error || "No match.";
+          return;
+        }
+        const results = data.results || [];
+        let found = null;
+        for (const prof of results) {
+          const members = prof.members || [];
+          for (const m of members) {
+            const docs = m.passports || [];
+            for (const doc of docs) {
+              if (String(doc.number || "").trim().toLowerCase() === p.toLowerCase()) {
+                found = m;
+                break;
+              }
+            }
+            if (found) break;
+          }
+          if (found) break;
+        }
+        if (found) {
+          const name = `${found.first_name || ""} ${found.last_name || ""}`.trim();
+          if (targetInput && !targetInput.value) targetInput.value = name;
+          if (passportExpiryInput && !passportExpiryInput.value) {
+            const exp = memberPassportExpiry(found, p);
+            if (exp) passportExpiryInput.value = exp;
+          }
+          if (matchEl) matchEl.textContent = name ? `Passenger found: ${name}` : "Passenger found.";
+        } else {
+          if (matchEl) matchEl.textContent = "No passenger found.";
+        }
+      } catch (e) {
+        if (matchEl) matchEl.textContent = String(e || "Lookup failed.");
       }
     };
 
@@ -486,15 +1001,70 @@
       }
     };
 
-    if (createForm) {
-      createForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        submitForm(createForm, createStatus, { channel: "direct" });
+    if (passportInput) {
+      let t = null;
+      passportInput.addEventListener("input", () => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => lookupPassengerByPassport(passportInput.value, passengerNameInput, passengerMatch), 400);
+      });
+    }
+    const lookupBtn = document.getElementById("visaLookupBtn");
+    if (lookupBtn && passportInput) {
+      lookupBtn.addEventListener("click", () => lookupPassengerByPassport(passportInput.value, passengerNameInput, passengerMatch));
+    }
+
+    const loadPassengerDb = async (q = "") => {
+      if (!passengerDbResults) return;
+      passengerDbResults.innerHTML = '<div class="text-muted">Searching…</div>';
+      try {
+        const r = await fetch("/passenger-database/api/search?q=" + encodeURIComponent(q));
+        const data = await r.json();
+        if (data.status !== "ok") {
+          passengerDbResults.innerHTML = '<div class="text-muted">No results.</div>';
+          return;
+        }
+        renderPassengerResults(data.results || []);
+      } catch (e) {
+        passengerDbResults.innerHTML = '<div class="text-muted">Search failed.</div>';
+      }
+    };
+
+    if (passengerDbBtn && passengerDbModal) {
+      passengerDbBtn.addEventListener("click", () => {
+        if (passengerDbSearch) passengerDbSearch.value = "";
+        if (passengerDbResults) passengerDbResults.innerHTML = '<div class="text-muted">Loading…</div>';
+        passengerDbModal.show();
+        setTimeout(() => passengerDbSearch && passengerDbSearch.focus(), 200);
+        loadPassengerDb("");
       });
     }
 
+    if (passengerDbSearch) {
+      let t = null;
+      passengerDbSearch.addEventListener("input", () => {
+        if (t) clearTimeout(t);
+        t = setTimeout(async () => {
+          const q = (passengerDbSearch.value || "").trim();
+          if (!q) {
+            passengerDbResults.innerHTML = '<div class="text-muted">Type to search…</div>';
+            return;
+          }
+          loadPassengerDb(q);
+        }, 300);
+      });
+    }
+
+    if (passengerDbLoadAll) {
+      passengerDbLoadAll.addEventListener("click", () => {
+        if (passengerDbSearch) passengerDbSearch.value = "";
+        loadPassengerDb("");
+      });
+    }
+
+    // Passenger DB selection handled in the applicant flow script below.
+
     if (vendorForm) {
-      vendorForm.addEventListener("submit", (e) => {
+      vendorForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         if (!selectedOffer || !vendorId.value) {
           setStatus(vendorStatus, "Please select a vendor offer first.", "warning");
@@ -531,6 +1101,101 @@
 
     if (visaList) {
       visaList.addEventListener("click", async (e) => {
+        const appEditBtn = e.target.closest("[data-app-edit]");
+        if (appEditBtn) {
+          const appId = appEditBtn.getAttribute("data-app-edit");
+          const item = appEditBtn.closest(".list-group-item");
+          const panel = item ? item.querySelector(`[data-app-edit-panel="${appId}"]`) : null;
+          if (panel) panel.classList.toggle("d-none");
+          return;
+        }
+        const appCancelBtn = e.target.closest("[data-app-cancel]");
+        if (appCancelBtn) {
+          const appId = appCancelBtn.getAttribute("data-app-cancel");
+          const item = appCancelBtn.closest(".list-group-item");
+          const panel = item ? item.querySelector(`[data-app-edit-panel="${appId}"]`) : null;
+          if (panel) panel.classList.add("d-none");
+          return;
+        }
+        const appSaveBtn = e.target.closest("[data-app-save]");
+        if (appSaveBtn) {
+          const appId = appSaveBtn.getAttribute("data-app-save");
+          const item = appSaveBtn.closest(".list-group-item");
+          const panel = item ? item.querySelector(`[data-app-edit-panel="${appId}"]`) : null;
+          if (!panel) return;
+          const fields = panel.querySelectorAll("[data-app-field]");
+          const payload = {};
+          fields.forEach((el) => {
+            const key = el.getAttribute("data-app-field");
+            if (!key) return;
+            payload[key] = el.value;
+          });
+          appSaveBtn.disabled = true;
+          try {
+            const r = await fetch(`/visa/api/application/${encodeURIComponent(appId)}/update`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await r.json();
+            if (data.status !== "ok") {
+              alert(data.error || "Failed to update.");
+              return;
+            }
+            await loadApplications(visaSearch ? visaSearch.value : "");
+          } catch (err) {
+            alert(String(err || "Failed to update."));
+          } finally {
+            appSaveBtn.disabled = false;
+          }
+          return;
+        }
+        const editBtn = e.target.closest("[data-visa-edit]");
+        if (editBtn) {
+          const visaId = editBtn.getAttribute("data-visa-edit");
+          const panel = visaList.querySelector(`[data-visa-edit-panel="${visaId}"]`);
+          if (panel) panel.classList.toggle("d-none");
+          return;
+        }
+        const cancelBtn = e.target.closest("[data-visa-cancel]");
+        if (cancelBtn) {
+          const visaId = cancelBtn.getAttribute("data-visa-cancel");
+          const panel = visaList.querySelector(`[data-visa-edit-panel="${visaId}"]`);
+          if (panel) panel.classList.add("d-none");
+          return;
+        }
+        const saveBtn = e.target.closest("[data-visa-save]");
+        if (saveBtn) {
+          const visaId = saveBtn.getAttribute("data-visa-save");
+          const panel = visaList.querySelector(`[data-visa-edit-panel="${visaId}"]`);
+          if (!panel) return;
+          const fields = panel.querySelectorAll("[data-edit-field]");
+          const payload = {};
+          fields.forEach((el) => {
+            const key = el.getAttribute("data-edit-field");
+            if (!key) return;
+            payload[key] = el.value;
+          });
+          saveBtn.disabled = true;
+          try {
+            const r = await fetch(`/visa/api/${encodeURIComponent(visaId)}/update`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const data = await r.json();
+            if (data.status !== "ok") {
+              alert(data.error || "Failed to update.");
+              return;
+            }
+            await loadApplications(visaSearch ? visaSearch.value : "");
+          } catch (err) {
+            alert(String(err || "Failed to update."));
+          } finally {
+            saveBtn.disabled = false;
+          }
+          return;
+        }
         const btn = e.target.closest("[data-status-update]");
         if (!btn) return;
         const visaId = btn.getAttribute("data-status-update");
@@ -616,11 +1281,540 @@
       });
     }
 
+    const filterInputs = [filterFrom, filterTo, filterCountry, filterStatus].filter(Boolean);
+    filterInputs.forEach((el) => {
+      el.addEventListener("change", () => loadApplications(visaSearch ? visaSearch.value : ""));
+      el.addEventListener("input", () => loadApplications(visaSearch ? visaSearch.value : ""));
+    });
+
     loadApplications("");
     loadVendors();
     if (isVendor) {
       loadVendorOffers();
       loadVendorAssigned();
+    }
+  });
+</script>
+
+<script>
+  // VISA_APPLICANTS_V3
+  window.addEventListener("DOMContentLoaded", () => {
+    const applicantsWrap = document.getElementById("visaApplicants");
+    const addApplicantBtn = document.getElementById("visaAddPerson");
+    const applicantsJson = document.getElementById("visaApplicantsJson");
+    const createForm = document.getElementById("visaCreateForm");
+    const inlineStatus = document.getElementById("visaCreateInlineStatus");
+    const visaSearch = document.getElementById("visaSearch");
+
+    const modalEl = document.getElementById("passengerDbModal");
+    const modalSearch = document.getElementById("passengerDbSearch");
+    const modalResults = document.getElementById("passengerDbResults");
+    const modalLoadAll = document.getElementById("passengerDbLoadAll");
+    const modal = (modalEl && window.bootstrap && window.bootstrap.Modal)
+      ? window.bootstrap.Modal.getOrCreateInstance(modalEl)
+      : null;
+    const submissionDateInput = document.getElementById("visaSubmissionDate");
+    const filterProfileLabel = document.getElementById("visaFilterProfileLabel");
+    const filterProfileId = document.getElementById("visaFilterProfileId");
+    const filterProfilePick = document.getElementById("visaFilterProfilePick");
+    const filterProfileClear = document.getElementById("visaFilterProfileClear");
+
+    let activeCard = null;
+    let modalMode = "applicant";
+
+    const updateApplicantLabels = () => {
+      if (!applicantsWrap) return;
+      const cards = Array.from(applicantsWrap.querySelectorAll(".visa-person-card"));
+      cards.forEach((card, idx) => {
+        card.setAttribute("data-index", String(idx));
+        if (!card.dataset.cardId) {
+          card.dataset.cardId = `app_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        }
+        const label = card.querySelector(".visa-person-header .fw-semibold");
+        if (label) label.textContent = `Applicant ${idx + 1}`;
+        const removeBtn = card.querySelector('[data-action="remove"]');
+        if (removeBtn) {
+          if (idx === 0) removeBtn.classList.add("d-none");
+          else removeBtn.classList.remove("d-none");
+        }
+      });
+    };
+
+    const setInlineStatus = (msg, kind = "muted") => {
+      if (!inlineStatus) return;
+      inlineStatus.className = "small";
+      if (kind === "success") inlineStatus.classList.add("text-success");
+      else if (kind === "danger") inlineStatus.classList.add("text-danger");
+      else if (kind === "info") inlineStatus.classList.add("text-info");
+      else inlineStatus.classList.add("text-muted");
+      inlineStatus.textContent = msg || "";
+    };
+
+    const clearCard = (card) => {
+      if (!card) return;
+      card.querySelectorAll("input, select").forEach((el) => {
+        if (el.tagName === "SELECT") {
+          el.value = el.getAttribute("data-field") === "status" ? "pending" : "";
+        } else {
+          el.value = "";
+        }
+      });
+      delete card.dataset.firstName;
+      delete card.dataset.lastName;
+      delete card.dataset.title;
+      delete card.dataset.dob;
+      delete card.dataset.passport;
+      delete card.dataset.passportExpiry;
+      delete card.dataset.profileId;
+      delete card.dataset.memberId;
+      delete card.dataset.filled;
+    };
+
+    const cloneCard = () => {
+      if (!applicantsWrap) return null;
+      const template = applicantsWrap.querySelector(".visa-person-card");
+      if (!template) return null;
+      const clone = template.cloneNode(true);
+      clearCard(clone);
+      clone.dataset.cardId = `app_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      applicantsWrap.appendChild(clone);
+      updateApplicantLabels();
+      return clone;
+    };
+
+    const collectApplicants = () => {
+      if (!applicantsWrap) return [];
+      const cards = Array.from(applicantsWrap.querySelectorAll(".visa-person-card"));
+      return cards.map((card) => {
+        const getVal = (field) => {
+          const el = card.querySelector(`[data-field="${field}"]`);
+          const val = el ? String(el.value || "").trim() : "";
+          if (val) return val;
+          const ds = card.dataset || {};
+          const map = {
+            first_name: "firstName",
+            last_name: "lastName",
+            title: "title",
+            dob: "dob",
+            passport: "passport",
+            passport_expiry: "passportExpiry",
+            profile_id: "profileId",
+            member_id: "memberId",
+            status: "status",
+            amount: "amount",
+          };
+          const key = map[field];
+          return key && ds[key] ? String(ds[key]) : "";
+        };
+        const first = getVal("first_name");
+        const last = getVal("last_name");
+        return {
+          title: getVal("title"),
+          first_name: first,
+          last_name: last,
+          passenger_name: `${first} ${last}`.trim(),
+          dob: getVal("dob"),
+          passport: getVal("passport"),
+          passport_expiry: getVal("passport_expiry"),
+          status: getVal("status") || "pending",
+          amount: getVal("amount"),
+          profile_id: getVal("profile_id"),
+          member_id: getVal("member_id"),
+        };
+      });
+    };
+
+    const renderPassengerResults = (profiles) => {
+      if (!modalResults) return;
+      if (!Array.isArray(profiles) || !profiles.length) {
+        modalResults.innerHTML = '<div class="text-muted">No passengers found.</div>';
+        return;
+      }
+      let html = "";
+      const showProfileBtn = window.__visaProfileFilterMode === true;
+      for (const p of profiles) {
+        const members = Array.isArray(p.members) ? p.members : [];
+        if (!members.length) continue;
+        const label = p.label || "Profile";
+        const profileId = p.id || p.profile_id || "";
+        const phone = p.phone || "";
+        html += `
+          <div class="passenger-profile-card mb-3">
+            <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+              <div>
+                <div class="fw-semibold">${label}</div>
+                ${phone ? `<div class="text-muted small">Phone: ${phone}</div>` : ""}
+              </div>
+              ${showProfileBtn ? `<button type="button" class="btn btn-outline-primary btn-sm" data-profile-select="1" data-profile-id="${profileId}" data-profile-label="${label}">Use profile</button>` : ""}
+            </div>
+        `;
+        for (const m of members) {
+          const name = `${m.first_name || ""} ${m.last_name || ""}`.trim();
+          const docs = Array.isArray(m.passports) ? m.passports : [];
+          let passport = "";
+          let expiry = "";
+          let options = "";
+          docs.forEach((d, idx) => {
+            const num = String(d.number || "").trim();
+            if (!num) return;
+            const exp = String(d.expiry_date || "").trim();
+            if (!passport) {
+              passport = num;
+              expiry = exp;
+            }
+            const labelTxt = exp ? `${num} (exp ${exp})` : num;
+            options += `<option value="${num}||${exp}" ${idx === 0 ? "selected" : ""}>${labelTxt}</option>`;
+          });
+          if (!options) {
+            const primary = String(m.primary_passport_number || "").trim();
+            if (primary) {
+              passport = primary;
+              options = `<option value="${primary}||">${primary}</option>`;
+            } else {
+              options = `<option value="">No passport</option>`;
+            }
+          }
+          const memberId = m.id || m.member_id || "";
+          const dataAttrs = `
+            data-passenger-select="1"
+            data-passenger-first="${(m.first_name || "")}"
+            data-passenger-last="${(m.last_name || "")}"
+            data-passenger-title="${(m.title || "")}"
+            data-passenger-dob="${(m.dob || "")}"
+            data-passenger-passport="${passport}"
+            data-passenger-expiry="${expiry}"
+            data-profile-id="${profileId}"
+            data-profile-label="${label}"
+            data-member-id="${memberId}"
+          `;
+          html += `
+            <div class="passenger-member" ${dataAttrs}>
+              <div>
+                <div class="fw-semibold">${name || "Unnamed passenger"}</div>
+                <div class="text-muted small">DOB: ${m.dob || "—"} · Type: ${m.age_category || "unknown"}</div>
+              </div>
+              <div class="passenger-member-actions">
+                <select class="form-select form-select-sm" data-passport-select>
+                  ${options}
+                </select>
+                <button class="btn btn-primary btn-sm" type="button" ${dataAttrs}>Select</button>
+              </div>
+            </div>
+          `;
+        }
+        html += `</div>`;
+      }
+      modalResults.innerHTML = html || '<div class="text-muted">No passengers found.</div>';
+    };
+
+    const loadPassengerDb = async (q = "") => {
+      if (!modalResults) return;
+      modalResults.innerHTML = '<div class="text-muted">Searching…</div>';
+      try {
+        const r = await fetch("/passenger-database/api/search?q=" + encodeURIComponent(q));
+        const data = await r.json();
+        if (data.status !== "ok") {
+          modalResults.innerHTML = '<div class="text-muted">No results.</div>';
+          return;
+        }
+        renderPassengerResults(data.results || []);
+      } catch (e) {
+        modalResults.innerHTML = '<div class="text-muted">Search failed.</div>';
+      }
+    };
+
+    const openPassengerDbForCard = (card) => {
+      modalMode = "applicant";
+      window.__visaProfileFilterMode = false;
+      activeCard = card || activeCard || (applicantsWrap ? applicantsWrap.querySelector(".visa-person-card") : null);
+      if (modalEl && activeCard) {
+        modalEl.dataset.activeIndex = activeCard.getAttribute("data-index") || "";
+        modalEl.dataset.targetCardId = activeCard.dataset.cardId || "";
+      }
+      if (modalSearch) modalSearch.value = "";
+      if (modal) modal.show();
+      loadPassengerDb("");
+    };
+
+    if (addApplicantBtn) {
+      addApplicantBtn.addEventListener("click", () => {
+        cloneCard();
+      });
+    }
+
+    if (filterProfilePick) {
+      filterProfilePick.addEventListener("click", () => {
+        modalMode = "profile-filter";
+        window.__visaProfileFilterMode = true;
+        activeCard = null;
+        if (modal) modal.show();
+        if (modalSearch) modalSearch.value = "";
+        loadPassengerDb("");
+      });
+    }
+
+    if (filterProfileClear) {
+      filterProfileClear.addEventListener("click", () => {
+        if (filterProfileId) filterProfileId.value = "";
+        if (filterProfileLabel) filterProfileLabel.value = "";
+        if (typeof window.loadVisaApplications === "function") {
+          window.loadVisaApplications(visaSearch ? visaSearch.value : "");
+        }
+      });
+    }
+
+    if (applicantsWrap) {
+      updateApplicantLabels();
+      applicantsWrap.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        const card = btn.closest(".visa-person-card");
+        if (!card) return;
+        const action = btn.getAttribute("data-action");
+        if (action === "remove") {
+          card.remove();
+          updateApplicantLabels();
+          return;
+        }
+        if (action === "clear") {
+          clearCard(card);
+          return;
+        }
+        if (action === "db") {
+          openPassengerDbForCard(card);
+        }
+      });
+    }
+
+    const resolveActiveCard = () => {
+      if (modalEl && modalEl.dataset.targetCardId && applicantsWrap) {
+        const cid = modalEl.dataset.targetCardId;
+        const found = applicantsWrap.querySelector(`.visa-person-card[data-card-id="${cid}"]`);
+        if (found) return found;
+      }
+      if (modalEl && modalEl.dataset.activeIndex && applicantsWrap) {
+        const idx = modalEl.dataset.activeIndex;
+        const found = applicantsWrap.querySelector(`.visa-person-card[data-index="${idx}"]`);
+        if (found) return found;
+      }
+      if (activeCard) return activeCard;
+      return applicantsWrap ? applicantsWrap.querySelector(".visa-person-card") : null;
+    };
+
+    if (modalResults) {
+      modalResults.addEventListener("click", (e) => {
+        const profileBtn = e.target.closest("[data-profile-select]");
+        if (profileBtn) {
+          if (modalMode === "profile-filter") {
+            const pid = profileBtn.getAttribute("data-profile-id") || "";
+            const label = profileBtn.getAttribute("data-profile-label") || "Profile";
+            if (filterProfileId) filterProfileId.value = pid;
+            if (filterProfileLabel) filterProfileLabel.value = label;
+            if (modal) modal.hide();
+            if (typeof window.loadVisaApplications === "function") {
+              window.loadVisaApplications(visaSearch ? visaSearch.value : "");
+            }
+          }
+          return;
+        }
+        const btn = e.target.closest("[data-passenger-select]");
+        if (!btn) return;
+        const container = btn.closest(".passenger-member") || btn;
+        const getAttr = (name) => container.getAttribute(name) || btn.getAttribute(name) || "";
+        const profileId = getAttr("data-profile-id");
+        const profileLabel = getAttr("data-profile-label");
+        if (modalMode === "profile-filter") {
+          const first = getAttr("data-passenger-first");
+          const last = getAttr("data-passenger-last");
+          const display = profileLabel || `${first} ${last}`.trim() || "Profile";
+          if (filterProfileId) filterProfileId.value = profileId;
+          if (filterProfileLabel) filterProfileLabel.value = display;
+          if (modal) modal.hide();
+          if (typeof window.loadVisaApplications === "function") {
+            window.loadVisaApplications(visaSearch ? visaSearch.value : "");
+          }
+          return;
+        }
+        const card = resolveActiveCard();
+        if (!card) return;
+        const setVal = (field, val) => {
+          const el = card.querySelector(`[data-field="${field}"]`);
+          if (el) el.value = val || "";
+        };
+        setVal("first_name", getAttr("data-passenger-first"));
+        setVal("last_name", getAttr("data-passenger-last"));
+        setVal("title", getAttr("data-passenger-title"));
+        setVal("dob", getAttr("data-passenger-dob"));
+        let passport = getAttr("data-passenger-passport");
+        let expiry = getAttr("data-passenger-expiry");
+        const passportSelect = container.querySelector("[data-passport-select]");
+        if (passportSelect && passportSelect.value) {
+          const parts = passportSelect.value.split("||");
+          if (parts[0]) passport = parts[0];
+          if (parts[1]) expiry = parts[1];
+        }
+        setVal("passport", passport);
+        setVal("passport_expiry", expiry);
+        const memberId = getAttr("data-member-id");
+        if (card && profileId) {
+          card.setAttribute("data-profile-id", profileId);
+          card.setAttribute("data-profile-label", profileLabel);
+        }
+        if (card && memberId) {
+          card.setAttribute("data-member-id", memberId);
+        }
+        setVal("profile_id", profileId);
+        setVal("member_id", memberId);
+        if (card) {
+          card.dataset.firstName = getAttr("data-passenger-first");
+          card.dataset.lastName = getAttr("data-passenger-last");
+          card.dataset.title = getAttr("data-passenger-title");
+          card.dataset.dob = getAttr("data-passenger-dob");
+          card.dataset.passport = passport;
+          card.dataset.passportExpiry = expiry;
+          card.dataset.profileId = profileId;
+          card.dataset.memberId = memberId;
+          card.dataset.filled = "1";
+        }
+        if (modalEl) {
+          modalEl.dataset.activeIndex = "";
+          modalEl.dataset.targetCardId = "";
+        }
+        if (modal) modal.hide();
+      });
+    }
+
+    if (modalSearch) {
+      let t = null;
+      modalSearch.addEventListener("input", () => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => {
+          const q = modalSearch.value || "";
+          if (!q.trim()) {
+            modalResults.innerHTML = '<div class="text-muted">Type to search…</div>';
+            return;
+          }
+          loadPassengerDb(q.trim());
+        }, 300);
+      });
+    }
+
+    if (modalLoadAll) {
+      modalLoadAll.addEventListener("click", () => {
+        if (modalSearch) modalSearch.value = "";
+        loadPassengerDb("");
+      });
+    }
+
+    if (createForm && applicantsJson) {
+      createForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        applicantsJson.value = JSON.stringify(collectApplicants());
+        if (submissionDateInput && !submissionDateInput.value) {
+          const d = new Date();
+          const iso = d.toISOString().slice(0, 10);
+          submissionDateInput.value = iso;
+        }
+        const fd = new FormData(createForm);
+        setInlineStatus("Submitting…", "info");
+        try {
+          const r = await fetch("/visa/api/create", { method: "POST", body: fd });
+          const data = await r.json();
+          if (data.status !== "ok") {
+            setInlineStatus(data.error || "Failed to submit.", "danger");
+            return;
+          }
+          setInlineStatus("Application submitted.", "success");
+          createForm.reset();
+          updateApplicantLabels();
+          if (applicantsWrap) {
+            const firstCard = applicantsWrap.querySelector(".visa-person-card");
+            if (firstCard) clearCard(firstCard);
+          }
+          const tabBtn = document.getElementById("tabApplications");
+          if (tabBtn && window.bootstrap && window.bootstrap.Tab) {
+            window.bootstrap.Tab.getOrCreateInstance(tabBtn).show();
+          }
+          if (typeof resetVisaFilters === "function") resetVisaFilters();
+          if (typeof window.loadVisaApplications === "function") {
+            await window.loadVisaApplications("");
+          }
+        } catch (err) {
+          setInlineStatus(String(err || "Failed to submit."), "danger");
+        }
+      }, { capture: true });
+    }
+  });
+</script>
+<script>
+  window.addEventListener("DOMContentLoaded", () => {
+    const visaListEl = document.getElementById("visaList");
+    const createForm = document.getElementById("visaCreateForm");
+
+    const renderFallback = (items, emptyLabel = "No applications yet.") => {
+      if (!visaListEl) return;
+      if (!Array.isArray(items) || !items.length) {
+        visaListEl.innerHTML = `<div class="text-muted">${emptyLabel}</div>`;
+        return;
+      }
+      let html = '<div class="list-group rounded-3 overflow-hidden">';
+      for (const v of items) {
+        const name = (v && (v.passenger_name || v.passport_number)) || "Visa";
+        const country = (v && v.destination_country) || "";
+        const status = (v && v.status) || "";
+        const submitted = v && v.submission_date ? `Submitted: ${v.submission_date}` : "";
+        const appLine = v && v.application_id ? `Application: ${v.application_id}` : "";
+        html += `
+          <div class="list-group-item">
+            <div class="fw-semibold">${name}</div>
+            <div class="text-muted small">Country: ${country} • Status: ${status}</div>
+            ${submitted ? `<div class="text-muted small">${submitted}</div>` : ""}
+            ${appLine ? `<div class="text-muted small">${appLine}</div>` : ""}
+          </div>
+        `;
+      }
+      html += "</div>";
+      visaListEl.innerHTML = html;
+    };
+
+    const refreshApplications = async () => {
+      if (!visaListEl) return;
+      if (typeof window.loadVisaApplications === "function") {
+        try {
+          await window.loadVisaApplications("");
+          return;
+        } catch (e) {
+          // fallback
+        }
+      }
+      try {
+        const r = await fetch("/visa/api/list");
+        const data = await r.json();
+        if (data.status !== "ok") {
+          visaListEl.textContent = data.error || "Failed to load.";
+          return;
+        }
+        if (typeof window.renderVisaList === "function") {
+          window.renderVisaList(data.visas || [], visaListEl, "No applications yet.");
+        } else if (typeof window.renderSimpleVisaList === "function") {
+          window.renderSimpleVisaList(data.visas || [], visaListEl, "No applications yet.");
+        } else {
+          renderFallback(data.visas || []);
+        }
+      } catch (e) {
+        visaListEl.textContent = String(e || "Failed to load.");
+      }
+    };
+
+    if (createForm) {
+      createForm.addEventListener("submit", () => {
+        setTimeout(refreshApplications, 800);
+      });
+    }
+
+    if (visaListEl && String(visaListEl.textContent || "").toLowerCase().includes("loading")) {
+      refreshApplications();
     }
   });
 </script>

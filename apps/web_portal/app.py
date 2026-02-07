@@ -40,6 +40,7 @@ from packages.features.esim.orders import (
 )
 from packages.features.passenger_db import router as passenger_db_router
 from packages.features.subscriptions import router as subscriptions_router
+from packages.addons.ai_assistant import router as ai_assistant_router
 from fastapi import FastAPI, Request, Form, UploadFile, HTTPException
 from fastapi.responses import HTMLResponse, PlainTextResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -156,6 +157,7 @@ async def _product_path_guard(request: Request, call_next):
 # Routers
 app.include_router(passenger_db_router)
 app.include_router(subscriptions_router)
+app.include_router(ai_assistant_router)
 
 app.mount("/assets", StaticFiles(directory=str(APP_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(APP_DIR / "templates"))
@@ -1078,6 +1080,7 @@ def _render(request: Request, template_name: str, context: dict | None = None):
         "has_passenger_db": bool("passenger_database" in active_addons),
         "has_visa_vendor": bool("visa_vendor" in active_addons),
         "has_esim": bool("esim" in active_addons),
+        "has_ai_assistant": bool("ai_assistant" in active_addons),
         "active_announcements": _active_announcements(),
     }
 
@@ -1419,12 +1422,32 @@ def _save_visas(items: list[dict]) -> None:
 
 def _normalize_visa_status(v: str) -> str:
     s = str(v or "").strip().lower()
-    if s in ("approved", "rejected"):
+    if s in ("approved", "rejected", "submitted", "pending"):
         return s
+    if s in ("reject", "rejecred", "declined"):
+        return "rejected"
     return "pending"
 
 
-def _link_visa_passenger(owner_user_id: str, passport_number: str) -> dict:
+def _split_name(full_name: str) -> tuple[str, str]:
+    parts = [p for p in (full_name or "").strip().split(" ") if p]
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], " ".join(parts[1:])
+
+
+def _link_visa_passenger(
+    owner_user_id: str,
+    passport_number: str,
+    passenger_name: str = "",
+    passport_expiry: str = "",
+    first_name: str = "",
+    last_name: str = "",
+    dob: str = "",
+    title: str = "",
+) -> dict:
     passport_number = (passport_number or "").strip()
     if not passport_number:
         return {"profile_id": "", "member_id": "", "passenger_name": ""}
@@ -1433,13 +1456,52 @@ def _link_visa_passenger(owner_user_id: str, passport_number: str) -> dict:
     found = find_member_by_passport(profiles, passport_number, owner_user_id=owner_user_id)
     if found:
         prof, mem = found
+        fn = (first_name or "").strip()
+        ln = (last_name or "").strip()
+        if not fn and not ln:
+            fn, ln = _split_name(passenger_name)
+        updated = False
+        if fn and not (mem.get("first_name") or "").strip():
+            mem["first_name"] = fn
+            updated = True
+        if ln and not (mem.get("last_name") or "").strip():
+            mem["last_name"] = ln
+            updated = True
+        if title and not (mem.get("title") or "").strip():
+            mem["title"] = title
+            updated = True
+        if dob and not (mem.get("dob") or "").strip():
+            mem["dob"] = dob
+            updated = True
+        if passport_expiry:
+            try:
+                upsert_member_passport(
+                    mem,
+                    {
+                        "number": passport_number,
+                        "issue_date": "",
+                        "expiry_date": passport_expiry,
+                        "issue_place": "",
+                    },
+                )
+                updated = True
+            except Exception:
+                pass
+        if updated:
+            prof["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            save_profiles(profiles)
     else:
         prof = create_profile(owner_user_id=owner_user_id, label=f"Visa - {passport_number}", phone="")
+        fn = (first_name or "").strip()
+        ln = (last_name or "").strip()
+        if not fn and not ln:
+            fn, ln = _split_name(passenger_name)
         mem = create_member(
             {
-                "first_name": "",
-                "last_name": "",
-                "dob": "",
+                "title": title,
+                "first_name": fn,
+                "last_name": ln,
+                "dob": dob or "",
                 "nationality": "",
                 "national_id_number": "",
                 "phone": "",
@@ -1447,7 +1509,7 @@ def _link_visa_passenger(owner_user_id: str, passport_number: str) -> dict:
                     {
                         "number": passport_number,
                         "issue_date": "",
-                        "expiry_date": "",
+                        "expiry_date": passport_expiry,
                         "issue_place": "",
                     }
                 ],
@@ -1456,18 +1518,9 @@ def _link_visa_passenger(owner_user_id: str, passport_number: str) -> dict:
         prof.setdefault("members", []).append(mem)
         profiles.append(prof)
 
-    upsert_member_passport(
-        mem,
-        {
-            "number": passport_number,
-            "issue_date": "",
-            "expiry_date": "",
-            "issue_place": "",
-        },
-    )
-
-    prof["updated_at"] = datetime.utcnow().isoformat() + "Z"
-    save_profiles(profiles)
+    if not found:
+        prof["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        save_profiles(profiles)
 
     first = (mem.get("first_name") or "").strip()
     last = (mem.get("last_name") or "").strip()
@@ -2682,7 +2735,15 @@ def visa(request: Request):
 
 
 @app.get("/visa/api/list", name="visa_list")
-def visa_list(request: Request, q: str = ""):
+def visa_list(
+    request: Request,
+    q: str = "",
+    status: str = "",
+    country: str = "",
+    from_date: str = "",
+    to_date: str = "",
+    profile_id: str = "",
+):
     _ensure_product_allowed()
     cu = _get_current_user(request)
     if not cu:
@@ -2693,6 +2754,16 @@ def visa_list(request: Request, q: str = ""):
     owner_id = str(owner.get("id") or "")
 
     qn = (q or "").strip().lower()
+    status_q = _normalize_visa_status(status) if (status or "").strip() else ""
+    country_q = (country or "").strip().lower()
+    try:
+        df = date.fromisoformat(from_date.strip()) if (from_date or "").strip() else None
+    except Exception:
+        df = None
+    try:
+        dt = date.fromisoformat(to_date.strip()) if (to_date or "").strip() else None
+    except Exception:
+        dt = None
     items = [v for v in _load_visas() if str(v.get("owner_user_id") or "") == owner_id]
     if qn:
         items = [
@@ -2701,6 +2772,28 @@ def visa_list(request: Request, q: str = ""):
             or qn in str(v.get("passenger_name") or "").lower()
             or qn in str(v.get("destination_country") or "").lower()
         ]
+    if status_q:
+        items = [v for v in items if _normalize_visa_status(v.get("status")) == status_q]
+    if (profile_id or "").strip():
+        pid = str(profile_id).strip()
+        items = [v for v in items if str(v.get("profile_id") or "") == pid]
+    if country_q:
+        items = [v for v in items if country_q in str(v.get("destination_country") or "").lower()]
+    if df or dt:
+        filtered = []
+        for v in items:
+            created = str(v.get("created_at") or "")
+            try:
+                created_dt = datetime.fromisoformat(created.replace("Z", "+00:00"))
+                created_date = created_dt.date()
+            except Exception:
+                continue
+            if df and created_date < df:
+                continue
+            if dt and created_date > dt:
+                continue
+            filtered.append(v)
+        items = filtered
     items.sort(key=lambda x: str(x.get("created_at") or ""), reverse=True)
     return Response(content=json.dumps({"status": "ok", "visas": items}), media_type="application/json")
 
@@ -2863,10 +2956,278 @@ async def visa_create(request: Request):
                 files_photos = []
         except Exception:
             payload = {}
+            form = None
+
+    # Multi-passenger application support (shared visa type / notes / country).
+    raw_applicants = payload.get("applicants") or payload.get("applicants_json")
+    if isinstance(raw_applicants, str) and raw_applicants.strip():
+        try:
+            raw_applicants = json.loads(raw_applicants)
+        except Exception:
+            raw_applicants = []
+    applicants = [a for a in raw_applicants if isinstance(a, dict)] if isinstance(raw_applicants, list) else []
+    if "form" in locals() and form is not None:
+        try:
+            def _list(key: str) -> list:
+                try:
+                    return list(form.getlist(key))
+                except Exception:
+                    return []
+
+            first_names = _list("first_name")
+            last_names = _list("last_name")
+            passports = _list("passport")
+            passport_expiries = _list("passport_expiry")
+            titles = _list("title")
+            dobs = _list("dob")
+            statuses = _list("status")
+            amounts = _list("amount")
+            profile_ids = _list("profile_id")
+            member_ids = _list("member_id")
+
+            max_len = max(
+                len(first_names),
+                len(last_names),
+                len(passports),
+                len(passport_expiries),
+                len(titles),
+                len(dobs),
+                len(statuses),
+                len(amounts),
+                len(profile_ids),
+                len(member_ids),
+            )
+            if max_len > len(applicants):
+                applicants = []
+                for i in range(max_len):
+                    applicants.append(
+                        {
+                            "first_name": first_names[i] if i < len(first_names) else "",
+                            "last_name": last_names[i] if i < len(last_names) else "",
+                            "passport": passports[i] if i < len(passports) else "",
+                            "passport_expiry": passport_expiries[i] if i < len(passport_expiries) else "",
+                            "title": titles[i] if i < len(titles) else "",
+                            "dob": dobs[i] if i < len(dobs) else "",
+                            "status": statuses[i] if i < len(statuses) else "",
+                            "amount": amounts[i] if i < len(amounts) else "",
+                            "profile_id": profile_ids[i] if i < len(profile_ids) else "",
+                            "member_id": member_ids[i] if i < len(member_ids) else "",
+                        }
+                    )
+        except Exception:
+            applicants = applicants or []
+    applicants = [
+        a
+        for a in applicants
+        if str(a.get("passport") or "").strip()
+        or str(a.get("passenger_name") or "").strip()
+        or str(a.get("first_name") or "").strip()
+        or str(a.get("last_name") or "").strip()
+    ]
+    if applicants:
+        country = str(payload.get("country") or "").strip()
+        submission_date = str(payload.get("submission_date") or "").strip()
+        notes = str(payload.get("notes") or "").strip()
+        visa_type = str(payload.get("visa_type") or "").strip().lower()
+        if visa_type not in ("tourist", "business"):
+            visa_type = ""
+        amount_currency = str(payload.get("amount_currency") or "IQD").strip().upper() or "IQD"
+        if not country:
+            return Response(content=json.dumps({"status": "error", "error": "Destination country is required."}), status_code=400, media_type="application/json")
+        if not submission_date:
+            try:
+                submission_date = date.today().isoformat()
+            except Exception:
+                submission_date = ""
+
+        users = _load_users()
+        owner = _get_company_admin_for_user(users, cu) or cu
+        owner_id = str(owner.get("id") or "")
+
+        vendor_id = str(payload.get("vendor_id") or "").strip()
+        channel = str(payload.get("channel") or "direct").strip().lower()
+        if channel not in ("direct", "vendor"):
+            channel = "direct"
+
+        vendor_name = ""
+        vendor_price = None
+        vendor_currency = ""
+        if channel == "vendor":
+            try:
+                vendor_price = float(payload.get("price"))
+            except Exception:
+                vendor_price = None
+            vendor_currency = str(payload.get("currency") or "IQD").strip().upper()
+            if not vendor_id or vendor_price is None or vendor_price <= 0:
+                return Response(content=json.dumps({"status": "error", "error": "Vendor, price, and currency are required for vendor submissions."}), status_code=400, media_type="application/json")
+            vendors = _list_visa_vendors(_load_users())
+            vmatch = next((v for v in vendors if str(v.get("id")) == vendor_id), None)
+            if not vmatch:
+                return Response(content=json.dumps({"status": "error", "error": "Vendor not found."}), status_code=400, media_type="application/json")
+            vendor_name = vmatch.get("vendor_name") or vmatch.get("company_name") or vmatch.get("username") or ""
+
+        application_id = f"visaapp_{uuid.uuid4().hex[:10]}" if len(applicants) > 1 else f"visaapp_{uuid.uuid4().hex[:10]}"
+        attachments = []
+        try:
+            attach_id = application_id or f"visa_{uuid.uuid4().hex[:12]}"
+            attachments.extend(await _save_visa_attachments(attach_id, files_scans, "passport_scan"))
+            attachments.extend(await _save_visa_attachments(attach_id, files_photos, "photo"))
+        except Exception:
+            attachments = attachments or []
+
+        new_visas = []
+        profiles_cache = None
+
+        def _resolve_member(profile_id: str, member_id: str):
+            nonlocal profiles_cache
+            if not member_id:
+                return None, None
+            if profiles_cache is None:
+                profiles_cache = load_profiles()
+            for prof in profiles_cache:
+                if profile_id and str(prof.get("id") or "") != str(profile_id):
+                    continue
+                for mem in (prof.get("members") or []):
+                    if str(mem.get("id") or "") == str(member_id):
+                        return prof, mem
+            return None, None
+
+        for idx, app in enumerate(applicants, start=1):
+            passport = str(app.get("passport") or "").strip()
+            if not passport:
+                app_profile_id = str(app.get("profile_id") or "").strip()
+                app_member_id = str(app.get("member_id") or "").strip()
+                prof, mem = _resolve_member(app_profile_id, app_member_id)
+                if mem:
+                    docs = mem.get("passports") or []
+                    if isinstance(docs, list) and docs:
+                        passport = str(docs[0].get("number") or "").strip()
+                    if not passport:
+                        passport = str(mem.get("primary_passport_number") or "").strip()
+                    if not app_profile_id and prof:
+                        app_profile_id = str(prof.get("id") or "")
+                    if mem and not app.get("passport_expiry"):
+                        if isinstance(docs, list) and docs:
+                            app["passport_expiry"] = docs[0].get("expiry_date") or ""
+                    if mem and not app.get("first_name"):
+                        app["first_name"] = mem.get("first_name") or ""
+                    if mem and not app.get("last_name"):
+                        app["last_name"] = mem.get("last_name") or ""
+                    if mem and not app.get("title"):
+                        app["title"] = mem.get("title") or ""
+                    if mem and not app.get("dob"):
+                        app["dob"] = mem.get("dob") or ""
+                    if app_profile_id:
+                        app["profile_id"] = app_profile_id
+                if not passport:
+                    return Response(content=json.dumps({"status": "error", "error": f"Passport number is required for passenger {idx}."}), status_code=400, media_type="application/json")
+
+            first_name = str(app.get("first_name") or "").strip()
+            last_name = str(app.get("last_name") or "").strip()
+            passenger_name = str(app.get("passenger_name") or "").strip()
+            if not passenger_name:
+                passenger_name = f"{first_name} {last_name}".strip()
+            passport_expiry = str(app.get("passport_expiry") or "").strip()
+            status = _normalize_visa_status(app.get("status") or ("submitted" if channel == "vendor" else "pending"))
+            try:
+                amount_val = float(app.get("amount")) if app.get("amount") not in (None, "") else None
+            except Exception:
+                amount_val = None
+            if amount_val is None and vendor_price is not None:
+                amount_val = vendor_price
+
+            link = _link_visa_passenger(
+                owner_id,
+                passport,
+                passenger_name,
+                passport_expiry,
+                first_name=first_name,
+                last_name=last_name,
+                dob=str(app.get("dob") or "").strip(),
+                title=str(app.get("title") or "").strip(),
+            )
+            app_profile_id = str(app.get("profile_id") or "").strip()
+            app_member_id = str(app.get("member_id") or "").strip()
+            if app_profile_id:
+                link["profile_id"] = app_profile_id
+            if app_member_id:
+                link["member_id"] = app_member_id
+
+            visa_id = f"visa_{uuid.uuid4().hex[:12]}"
+            visa = {
+                "id": visa_id,
+                "application_id": application_id,
+                "owner_user_id": owner_id,
+                "created_by_user_id": str(cu.get("id") or ""),
+                "passport_number": passport,
+                "destination_country": country,
+                "submission_date": submission_date,
+                "notes": notes,
+                "status": status,
+                "visa_type": visa_type,
+                "passport_expiry": passport_expiry,
+                "amount": amount_val,
+                "amount_currency": amount_currency,
+                "channel": channel,
+                "vendor_id": vendor_id,
+                "vendor_name": vendor_name,
+                "vendor_price": vendor_price,
+                "vendor_currency": vendor_currency,
+                "attachments": attachments,
+                "profile_id": link.get("profile_id") or "",
+                "member_id": link.get("member_id") or "",
+                "passenger_name": passenger_name or (link.get("passenger_name") or ""),
+                "first_name": first_name,
+                "last_name": last_name,
+                "dob": str(app.get("dob") or "").strip(),
+                "title": str(app.get("title") or "").strip(),
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+                "updated_by_user_id": str(cu.get("id") or ""),
+            }
+            new_visas.append(visa)
+
+            try:
+                if visa.get("profile_id") and visa.get("member_id"):
+                    add_history_event(
+                        owner_user_id=owner_id,
+                        profile_id=str(visa.get("profile_id")),
+                        member_id=str(visa.get("member_id")),
+                        kind="visa",
+                        details={
+                        "status": visa.get("status"),
+                        "country": visa.get("destination_country"),
+                        "submission_date": visa.get("submission_date"),
+                        "passport_number": visa.get("passport_number"),
+                        "passport_expiry": visa.get("passport_expiry"),
+                        "visa_type": visa.get("visa_type"),
+                            "amount": visa.get("amount"),
+                            "amount_currency": visa.get("amount_currency"),
+                            "notes": visa.get("notes"),
+                            "visa_id": visa.get("id"),
+                        },
+                    )
+            except Exception:
+                pass
+
+        items = _load_visas()
+        items = new_visas + items
+        _save_visas(items)
+        return Response(content=json.dumps({"status": "ok", "visas": new_visas, "application_id": application_id}), media_type="application/json")
 
     passport = str(payload.get("passport") or "").strip()
     country = str(payload.get("country") or "").strip()
     notes = str(payload.get("notes") or "").strip()
+    passenger_name = str(payload.get("passenger_name") or "").strip()
+    passport_expiry = str(payload.get("passport_expiry") or "").strip()
+    visa_type = str(payload.get("visa_type") or "").strip().lower()
+    if visa_type not in ("tourist", "business"):
+        visa_type = ""
+    try:
+        amount_val = float(payload.get("amount")) if payload.get("amount") not in (None, "") else None
+    except Exception:
+        amount_val = None
+    amount_currency = str(payload.get("amount_currency") or "IQD").strip().upper() or "IQD"
 
     if not passport or not country:
         return Response(content=json.dumps({"status": "error", "error": "Passport number and destination country are required."}), status_code=400, media_type="application/json")
@@ -2875,8 +3236,7 @@ async def visa_create(request: Request):
     owner = _get_company_admin_for_user(users, cu) or cu
     owner_id = str(owner.get("id") or "")
 
-    link = _link_visa_passenger(owner_id, passport)
-    status = _normalize_visa_status(payload.get("status"))
+    link = _link_visa_passenger(owner_id, passport, passenger_name, passport_expiry)
 
     visa_id = f"visa_{uuid.uuid4().hex[:12]}"
     attachments = []
@@ -2890,6 +3250,7 @@ async def visa_create(request: Request):
     channel = str(payload.get("channel") or "direct").strip().lower()
     if channel not in ("direct", "vendor"):
         channel = "direct"
+    status = _normalize_visa_status(payload.get("status") or ("submitted" if channel == "vendor" else "pending"))
 
     vendor_name = ""
     vendor_price = None
@@ -2909,6 +3270,8 @@ async def visa_create(request: Request):
             return Response(content=json.dumps({"status": "error", "error": "Vendor not found."}), status_code=400, media_type="application/json")
         vendor_name = vmatch.get("vendor_name") or vmatch.get("company_name") or vmatch.get("username") or ""
 
+    if amount_val is None and vendor_price is not None:
+        amount_val = vendor_price
     visa = {
         "id": visa_id,
         "owner_user_id": owner_id,
@@ -2917,6 +3280,10 @@ async def visa_create(request: Request):
         "destination_country": country,
         "notes": notes,
         "status": status,
+        "visa_type": visa_type,
+        "passport_expiry": passport_expiry,
+        "amount": amount_val,
+        "amount_currency": amount_currency,
         "channel": channel,
         "vendor_id": vendor_id,
         "vendor_name": vendor_name,
@@ -2925,7 +3292,7 @@ async def visa_create(request: Request):
         "attachments": attachments,
         "profile_id": link.get("profile_id") or "",
         "member_id": link.get("member_id") or "",
-        "passenger_name": link.get("passenger_name") or "",
+        "passenger_name": passenger_name or (link.get("passenger_name") or ""),
         "created_at": datetime.utcnow().isoformat() + "Z",
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "updated_by_user_id": str(cu.get("id") or ""),
@@ -2947,6 +3314,10 @@ async def visa_create(request: Request):
                     "status": visa.get("status"),
                     "country": visa.get("destination_country"),
                     "passport_number": visa.get("passport_number"),
+                    "passport_expiry": visa.get("passport_expiry"),
+                    "visa_type": visa.get("visa_type"),
+                    "amount": visa.get("amount"),
+                    "amount_currency": visa.get("amount_currency"),
                     "notes": visa.get("notes"),
                     "visa_id": visa.get("id"),
                 },
@@ -3005,6 +3376,10 @@ async def visa_update_status(request: Request, visa_id: str):
                     "status": visa.get("status"),
                     "country": visa.get("destination_country"),
                     "passport_number": visa.get("passport_number"),
+                    "passport_expiry": visa.get("passport_expiry"),
+                    "visa_type": visa.get("visa_type"),
+                    "amount": visa.get("amount"),
+                    "amount_currency": visa.get("amount_currency"),
                     "notes": visa.get("notes"),
                     "visa_id": visa.get("id"),
                 },
@@ -3014,6 +3389,234 @@ async def visa_update_status(request: Request, visa_id: str):
 
     return Response(content=json.dumps({"status": "ok", "visa": visa}), media_type="application/json")
 
+
+@app.post("/visa/api/application/{application_id}/update", name="visa_application_update")
+async def visa_application_update(request: Request, application_id: str):
+    _ensure_product_allowed()
+    cu = _get_current_user(request)
+    if not cu:
+        return Response(content=json.dumps({"status": "error", "error": "Not authenticated."}), status_code=401, media_type="application/json")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    users = _load_users()
+    owner = _get_company_admin_for_user(users, cu) or cu
+    owner_id = str(owner.get("id") or "")
+
+    items = _load_visas()
+    matches = [v for v in items if str(v.get("application_id") or "") == str(application_id)]
+    if not matches:
+        return Response(content=json.dumps({"status": "error", "error": "Application not found."}), status_code=404, media_type="application/json")
+
+    def can_edit(v: dict) -> bool:
+        is_owner = str(v.get("owner_user_id") or "") == owner_id
+        vendor_owner = _get_company_admin_for_user(users, cu) or cu
+        is_vendor = str(v.get("vendor_id") or "") == str(vendor_owner.get("id") or "")
+        if is_vendor and not _has_active_addon(request, cu, "visa_vendor"):
+            is_vendor = False
+        return is_owner or is_vendor
+
+    editable = [v for v in matches if can_edit(v)]
+    if not editable:
+        return Response(content=json.dumps({"status": "error", "error": "Forbidden."}), status_code=403, media_type="application/json")
+
+    destination_country = str(payload.get("destination_country") or "").strip() if "destination_country" in payload else None
+    visa_type = str(payload.get("visa_type") or "").strip().lower() if "visa_type" in payload else None
+    if visa_type is not None and visa_type not in ("tourist", "business"):
+        visa_type = ""
+    submission_date = str(payload.get("submission_date") or "").strip() if "submission_date" in payload else None
+    notes = str(payload.get("notes") or "") if "notes" in payload else None
+
+    updated = []
+    for visa in editable:
+        if destination_country is not None:
+            visa["destination_country"] = destination_country
+        if visa_type is not None:
+            visa["visa_type"] = visa_type
+        if submission_date is not None:
+            visa["submission_date"] = submission_date
+        if notes is not None:
+            visa["notes"] = notes
+        visa["updated_at"] = datetime.utcnow().isoformat() + "Z"
+        visa["updated_by_user_id"] = str(cu.get("id") or "")
+        updated.append(visa)
+
+        try:
+            if visa.get("profile_id") and visa.get("member_id"):
+                add_history_event(
+                    owner_user_id=owner_id,
+                    profile_id=str(visa.get("profile_id")),
+                    member_id=str(visa.get("member_id")),
+                    kind="visa",
+                    details={
+                        "status": visa.get("status"),
+                        "country": visa.get("destination_country"),
+                        "passport_number": visa.get("passport_number"),
+                        "passport_expiry": visa.get("passport_expiry"),
+                        "visa_type": visa.get("visa_type"),
+                        "amount": visa.get("amount"),
+                        "amount_currency": visa.get("amount_currency"),
+                        "notes": visa.get("notes"),
+                        "submission_date": visa.get("submission_date"),
+                        "visa_id": visa.get("id"),
+                    },
+                )
+        except Exception:
+            pass
+
+    _save_visas(items)
+    return Response(content=json.dumps({"status": "ok", "updated": len(updated)}), media_type="application/json")
+
+
+@app.post("/visa/api/{visa_id}/update", name="visa_update")
+async def visa_update(request: Request, visa_id: str):
+    _ensure_product_allowed()
+    cu = _get_current_user(request)
+    if not cu:
+        return Response(content=json.dumps({"status": "error", "error": "Not authenticated."}), status_code=401, media_type="application/json")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    users = _load_users()
+    owner = _get_company_admin_for_user(users, cu) or cu
+    owner_id = str(owner.get("id") or "")
+
+    items = _load_visas()
+    visa = next((v for v in items if str(v.get("id") or "") == str(visa_id)), None)
+    if not visa:
+        return Response(content=json.dumps({"status": "error", "error": "Visa application not found."}), status_code=404, media_type="application/json")
+
+    is_owner = str(visa.get("owner_user_id") or "") == owner_id
+    vendor_owner = _get_company_admin_for_user(users, cu) or cu
+    is_vendor = str(visa.get("vendor_id") or "") == str(vendor_owner.get("id") or "")
+    if is_vendor and not _has_active_addon(request, cu, "visa_vendor"):
+        is_vendor = False
+    if not (is_owner or is_vendor):
+        return Response(content=json.dumps({"status": "error", "error": "Forbidden."}), status_code=403, media_type="application/json")
+
+    if not isinstance(payload, dict):
+        payload = {}
+
+    def _get_payload_str(key: str) -> str | None:
+        if key not in payload:
+            return None
+        return str(payload.get(key) or "").strip()
+
+    destination_country = _get_payload_str("destination_country")
+    if destination_country is not None:
+        visa["destination_country"] = destination_country
+
+    visa_type = _get_payload_str("visa_type")
+    if visa_type is not None:
+        if visa_type not in ("tourist", "business"):
+            visa_type = ""
+        visa["visa_type"] = visa_type
+
+    status = _get_payload_str("status")
+    if status is not None:
+        visa["status"] = _normalize_visa_status(status)
+
+    submission_date = _get_payload_str("submission_date")
+    if submission_date is not None:
+        visa["submission_date"] = submission_date
+
+    notes = _get_payload_str("notes")
+    if notes is not None:
+        visa["notes"] = notes
+
+    passport_number = _get_payload_str("passport_number")
+    passport_expiry = _get_payload_str("passport_expiry")
+    passenger_name = _get_payload_str("passenger_name")
+    first_name = _get_payload_str("first_name")
+    last_name = _get_payload_str("last_name")
+    dob = _get_payload_str("dob")
+    title = _get_payload_str("title")
+
+    if passport_number is not None:
+        visa["passport_number"] = passport_number
+    if passport_expiry is not None:
+        visa["passport_expiry"] = passport_expiry
+    if passenger_name is not None:
+        visa["passenger_name"] = passenger_name
+    if first_name is not None:
+        visa["first_name"] = first_name
+    if last_name is not None:
+        visa["last_name"] = last_name
+    if dob is not None:
+        visa["dob"] = dob
+    if title is not None:
+        visa["title"] = title
+
+    amount = payload.get("amount") if isinstance(payload, dict) else None
+    if "amount" in payload:
+        try:
+            visa["amount"] = float(amount) if amount not in (None, "") else None
+        except Exception:
+            visa["amount"] = None
+
+    amount_currency = _get_payload_str("amount_currency")
+    if amount_currency is not None:
+        visa["amount_currency"] = amount_currency or "IQD"
+
+    new_passport = visa.get("passport_number") or ""
+    new_name = visa.get("passenger_name") or ""
+    if (passport_number is not None) or (passenger_name is not None) or (first_name is not None) or (last_name is not None):
+        if not new_name and (visa.get("first_name") or visa.get("last_name")):
+            new_name = f"{visa.get('first_name') or ''} {visa.get('last_name') or ''}".strip()
+            visa["passenger_name"] = new_name
+        if new_passport:
+            link = _link_visa_passenger(
+                owner_id,
+                new_passport,
+                new_name,
+                visa.get("passport_expiry") or "",
+                first_name=visa.get("first_name") or "",
+                last_name=visa.get("last_name") or "",
+                dob=visa.get("dob") or "",
+                title=visa.get("title") or "",
+            )
+            if link.get("profile_id"):
+                visa["profile_id"] = link.get("profile_id") or ""
+            if link.get("member_id"):
+                visa["member_id"] = link.get("member_id") or ""
+
+    visa["updated_at"] = datetime.utcnow().isoformat() + "Z"
+    visa["updated_by_user_id"] = str(cu.get("id") or "")
+    _save_visas(items)
+
+    try:
+        if visa.get("profile_id") and visa.get("member_id"):
+            add_history_event(
+                owner_user_id=owner_id,
+                profile_id=str(visa.get("profile_id")),
+                member_id=str(visa.get("member_id")),
+                kind="visa",
+                details={
+                    "status": visa.get("status"),
+                    "country": visa.get("destination_country"),
+                    "passport_number": visa.get("passport_number"),
+                    "passport_expiry": visa.get("passport_expiry"),
+                    "visa_type": visa.get("visa_type"),
+                    "amount": visa.get("amount"),
+                    "amount_currency": visa.get("amount_currency"),
+                    "notes": visa.get("notes"),
+                    "submission_date": visa.get("submission_date"),
+                    "visa_id": visa.get("id"),
+                },
+            )
+    except Exception:
+        pass
+
+    return Response(content=json.dumps({"status": "ok", "visa": visa}), media_type="application/json")
 
 
 @app.get("/payment", response_class=HTMLResponse, name="payment")
