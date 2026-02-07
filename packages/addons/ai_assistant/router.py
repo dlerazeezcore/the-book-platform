@@ -301,9 +301,15 @@ def _history_to_input(history: list) -> list[dict]:
         # Prevent oversized history entries.
         if len(content) > 2000:
             content = content[:2000]
-        items.append(
-            {"role": role, "content": [{"type": "input_text", "text": content}]}
-        )
+        # Assistant history should be sent as output_text items.
+        if role == "assistant":
+            items.append(
+                {"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": content}]}
+            )
+        else:
+            items.append(
+                {"type": "message", "role": "user", "content": [{"type": "input_text", "text": content}]}
+            )
     return items
 
 
